@@ -1,119 +1,80 @@
 module Lib where
-import Data.Char
 
 type Pos = (Int, Int)
 data Direction = North | South | East | West
 
 move :: Direction -> Pos -> Pos
 move North (x,y) = (x, y+1)
+move West  (x,y) = (x-1, y)
+move East  (x,y) = (x+1, y)
 move South (x,y) = (x, y-1)
-move West (x,y) = (x-1, y)
-move East (x,y) = (x+1, y)
 
 moves :: [Direction] -> Pos -> Pos
-moves [] position = position
-moves (h:t) position = moves t (move h position)
+moves xs pos = foldl (flip move) pos xs
 
 data Nat = Zero | Succ Nat
-    deriving (Eq, Show, Read, Ord)
+    deriving (Eq, Show, Read, Ord) 
 
-natAddition :: Nat -> Nat -> Nat
-natAddition Zero Zero = Zero
-natAddition Zero (Succ x) = (Succ x)
-natAddition (Succ x) Zero = (Succ x)
-natAddition (Succ x) (Succ y) = Succ (Succ ( natAddition x y))
+addNat :: Nat -> Nat -> Nat
+addNat x Zero = x
+addNat x (Succ y) = Succ (addNat x y)
 
-natMultiplication :: Nat -> Nat -> Nat
-natMultiplication _ Zero = Zero
-natMultiplication Zero _ = Zero
-natMultiplication (Succ x) y = natAddition (natMultiplication x y) y
+mulNat :: Nat -> Nat -> Nat
+mulNat _ Zero = Zero
+mulNat x (Succ y) = addNat (mulNat x y) x
 
-nat2int :: Nat -> Int
-nat2int Zero = 0
-nat2int (Succ x) = 1 + nat2int(x)
+nat2Int :: Nat -> Int
+nat2Int Zero = 0
+nat2Int (Succ y) = 1 + nat2Int y
 
-int2nat :: Int -> Nat
-int2nat 0 = Zero
-int2nat x = Succ(int2nat(x - 1))
+int2Nat :: Int -> Nat
+int2Nat 0 = Zero
+int2Nat n = Succ (int2Nat (n-1))
 
 data Tree a = Leaf | Node a (Tree a) (Tree a)
     deriving (Eq, Show, Read, Ord)
 
 insert :: Ord a => Tree a -> a -> Tree a
 insert Leaf x = Node x Leaf Leaf
-insert (Node x left right) y
-    | y < x = Node x (insert left y) right
-    | y > x = Node x left (insert right y)
-    | otherwise = (Node x left right)
+insert t@(Node a l r) x | x == a = t
+                        | x < a = Node a (insert l x) r
+                        | x > a = Node a l (insert r x)
 
-letterToMorse :: Char -> String
-letterToMorse letter = case letter of
-    'a' -> ".-"
-    'b' -> "-..."
-    'c' -> "-.-."
-    'd' -> "-.."
-    'e' -> "."
-    'f' -> "..-."
-    'g' -> "--."
-    'h' -> "...."
-    'i' -> ".."
-    'j' -> ".---"
-    'k' -> "-.-"
-    'l' -> ".-.."
-    'm' -> "--"
-    'n' -> "-."
-    'o' -> "---"
-    'p' -> ".--."
-    'q' -> "--.-"
-    'r' -> ".-."
-    's' -> "..."
-    't' -> "-"
-    'u' -> "..-"
-    'v' -> "...-"
-    'w' -> ".--"
-    'x' -> "-..-"
-    'y' -> "-.--"
-    'z' -> "--.."
-    _ -> error "Letter didn't match"
 
-morseToLetter :: String -> Char
+
+morseToLetter :: String -> String
 morseToLetter morse = case morse of
-    ".-" -> 'a'
-    "-..." -> 'b'
-    "-.-." -> 'c'
-    "-.." -> 'd'
-    "." -> 'e'
-    "..-." -> 'f'
-    "--." -> 'g'
-    "...." -> 'h'
-    ".." -> 'i'
-    ".---" -> 'j'
-    "-.-" -> 'k'
-    ".-.." -> 'l'
-    "--" -> 'm'
-    "-." -> 'n'
-    "---" -> 'o'
-    ".--." -> 'p'
-    "--.-" -> 'q'
-    ".-." -> 'r'
-    "..." -> 's'
-    "-" -> 't'
-    "..-" -> 'u'
-    "...-" -> 'v'
-    ".--" -> 'w'
-    "-..-" -> 'x'
-    "-.--" -> 'y'
-    "--.." -> 'z'
-    _ -> error "Morse didn't match"
+     ".-"   -> "A"
+     "-..." -> "B"
+     "-.-." -> "C"
+     "-.."  -> "D"
+     "."    -> "E"
+     "..-." -> "F"
+     "--."  -> "G"
+     "...." -> "H"
+     ".."   -> "I"
+     ".---" -> "J"
+     "-.-"  -> "K"
+     ".-.." -> "L"
+     "--"   -> "M"
+     "-."   -> "N"
+     "---"  -> "O"
+     ".--." -> "P"
+     "--.-" -> "Q"
+     ".-."  -> "R"
+     "..."  -> "S"
+     "-"    -> "T"
+     "..-"  -> "U"
+     "...-" -> "V"
+     ".--"  -> "W"
+     "-..-" -> "X"
+     "-.--" -> "Y"
+     "--.." -> "Z"
+     _ -> ""
 
-encode :: String -> String
-encode x = concatMap letterToMorse [ toLower c | c <- x]
+decode :: String -> String
+decode [] = []
 
-slice :: String -> Int -> Int -> String
-slice xs from to = take (to - from + 1) (drop from xs)
 
-decode :: String -> Int -> Int -> [String]
-decode "" _ _ = [""]
-decode str from to
-    | (to >= from) && (to < (length str)) = [(slice str from to)] ++ (decode str (from + 1) to) ++ (decode str from (to + 1))
-    | otherwise = []
+
+
