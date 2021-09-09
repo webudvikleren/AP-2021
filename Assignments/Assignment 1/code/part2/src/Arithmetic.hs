@@ -56,16 +56,8 @@ evalFull (Var variableName) env = case (env variableName) of
                                     Just a -> a
 evalFull (Let var def body) env = evalFull body (extendEnv var (evalFull def env) env)
 -- Only error if error in defining expression and using it in body expression - lazy Haskell
-evalFull (Sum var from to body) env = if (evalFull from env) == (evalFull to env) then 0
-                                        else evalFull (Let var (evalFull body env) (Add (Cst evalFull (Var var) env) (evalFull (
-                                          Sum
-                                            var
-                                            (Cst (evalFull from env) + 1)
-                                            to
-                                            body  
-                                        ) env
-                                          )))
-                                          env 
+evalFull (Sum var from to body) env = if (evalFull from env) > (evalFull to env) then 0
+                                        else evalFull(Add (Let var from body) (Sum var (Cst ((evalFull from env) + 1)) to body)) env
 
 evalFull _ _ = error "Expression cannot be handled (yet)"
 
