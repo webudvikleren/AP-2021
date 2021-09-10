@@ -41,25 +41,23 @@ extendEnv :: VName -> Integer -> Env -> Env
 extendEnv v n r = \input -> if input == v then Just n else r input
 
 evalFull :: Exp -> Env -> Integer
-evalFull (Cst x) env = x
-evalFull (Add e1 e2) env = (evalFull e1 env) + (evalFull e2 env)
-evalFull (Sub e1 e2) env = (evalFull e1 env) - (evalFull e2 env)
-evalFull (Mul e1 e2) env = (evalFull e1 env) * (evalFull e2 env)
-evalFull (Div e1 e2) env | (evalFull e2 env) == 0 = error "Division by zero."
+evalFull (Cst x) _ = x
+evalFull (Add e1 e2) env = evalFull e1 env + evalFull e2 env
+evalFull (Sub e1 e2) env = evalFull e1 env - evalFull e2 env
+evalFull (Mul e1 e2) env = evalFull e1 env * evalFull e2 env
+evalFull (Div e1 e2) env | evalFull e2 env == 0 = error "Division by zero."
                          | otherwise =  div (evalFull e1 env) (evalFull e2 env)
-evalFull (Pow e1 e2) env = (evalFull e1 env) ^ (evalFull e2 env)
-evalFull (If test yes no) env = if (evalFull test env) /= 0 then 
-                                              (evalFull yes env) else 
-                                              (evalFull no env)
-evalFull (Var variableName) env = case (env variableName) of
+evalFull (Pow e1 e2) env = evalFull e1 env ^ evalFull e2 env
+evalFull (If test yes no) env = if evalFull test env /= 0 then 
+                                              evalFull yes env else 
+                                              evalFull no env
+evalFull (Var variableName) env = case env variableName of
                                     Nothing -> error "Variable not bound"
                                     Just a -> a
 evalFull (Let var def body) env = evalFull body (extendEnv var (evalFull def env) env)
 -- Only error if error in defining expression and using it in body expression - lazy Haskell
-evalFull (Sum var from to body) env = if (evalFull from env) > (evalFull to env) then 0
-                                        else evalFull(Add (Let var from body) (Sum var (Cst ((evalFull from env) + 1)) to body)) env
-
-evalFull _ _ = error "Expression cannot be handled (yet)"
+evalFull (Sum var from to body) env = if evalFull from env > evalFull to env then 0
+                                      else evalFull (Add (Let var from body) (Sum var (Cst (evalFull from env + 1)) to body)) env
 
 evalErr :: Exp -> Env -> Either ArithError Integer
 evalErr = undefined
