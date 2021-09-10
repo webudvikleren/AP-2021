@@ -33,7 +33,8 @@ evalSimple (Sub e1 e2) = evalSimple e1 - evalSimple e2
 evalSimple (Mul e1 e2) = evalSimple e1 * evalSimple e2
 evalSimple (Div e1 e2) | evalSimple e2 == 0 = error "Division by zero."
                        | otherwise =  div (evalSimple e1) (evalSimple e2)
-evalSimple (Pow e1 e2) = evalSimple e1 ^ evalSimple e2
+evalSimple (Pow e1 e2) | evalSimple e2 < 0 = error "Exponent is negative."
+                       | otherwise = evalSimple e1 ^ evalSimple e2
 evalSimple _ = error "Expression cannot be handled (yet)"
 
 
@@ -47,7 +48,8 @@ evalFull (Sub e1 e2) env = evalFull e1 env - evalFull e2 env
 evalFull (Mul e1 e2) env = evalFull e1 env * evalFull e2 env
 evalFull (Div e1 e2) env | evalFull e2 env == 0 = error "Division by zero."
                          | otherwise =  div (evalFull e1 env) (evalFull e2 env)
-evalFull (Pow e1 e2) env = evalFull e1 env ^ evalFull e2 env
+evalFull (Pow e1 e2) env | evalFull e2 env < 0 = error "Exponent is negative."
+                         | otherwise = evalFull e1 env ^ evalFull e2 env
 evalFull (If test yes no) env = if evalFull test env /= 0 then 
                                               evalFull yes env else 
                                               evalFull no env
