@@ -62,7 +62,30 @@ evalFull (Sum var from to body) env = if evalFull from env > evalFull to env the
                                       else evalFull (Add (Let var from body) (Sum var (Cst (evalFull from env + 1)) to body)) env
 
 evalErr :: Exp -> Env -> Either ArithError Integer
-evalErr = undefined
+evalErr (Cst x) _ = Right x
+evalErr (Add e1 e2) env = do {x <- evalErr e1 env ; y <- evalErr e2 env ; return (x + y)}
+evalErr (Sub e1 e2) env = do {x <- evalErr e1 env ; y <- evalErr e2 env ; return (x - y)}
+evalErr (Mul e1 e2) env = do {x <- evalErr e1 env ; y <- evalErr e2 env ; return (x * y)}
+evalErr (Div e1 e2) env = do 
+                          x <- evalErr e2 env
+                          if x == 0 then Left EDivZero
+                          else do {y <- evalErr e1 env ; return (div y x)}
+evalErr (Pow e1 e2) env = do 
+                          x <- evalErr e2 env
+                          if x < 0 then Left ENegPower
+                          else do {y <- evalErr e1 env ; return (y ^ x)}       
+evalErr (If test yes no) env = do
+                               x <- evalErr test env
+                               if x /= 0 then evalErr yes env else evalErr no env
+evalErr (Var variableName) env = case env variableName of
+                                    Nothing -> Left (EBadVar variableName)
+                                    Just a -> Right a
+evalErr (Let var def body) env = evalErr body (extendEnv var (evalFull def env) env)
+evalErr (Sum var from to body) env = do
+                                     x <- evalErr from env
+                                     y <- evalErr to env
+                                     if x > y then Right 0
+                                     else evalErr (Add (Let var from body) (Sum var (Cst (x + 1)) to body)) env
 
 -- optional parts (if not attempted, leave them unmodified)
 
