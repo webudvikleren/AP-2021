@@ -18,13 +18,16 @@ import Definitions
 
 showExp :: Exp -> String
 showExp (Cst x) = show x
-showExp (Add e1 e2) = "(" ++ showExp e1 ++ "+" ++ showExp e2 ++ ")"
-showExp (Sub e1 e2) = "(" ++ showExp e1 ++ "-" ++ showExp e2 ++ ")"
-showExp (Mul e1 e2) = "(" ++ showExp e1 ++ "*" ++ showExp e2 ++ ")"
-showExp (Div e1 e2) = "(" ++ showExp e1 ++ "`div`" ++ showExp e2 ++ ")"
-showExp (Pow e1 e2) = "(" ++ showExp e1 ++ "^" ++ showExp e2 ++ ")"
+showExp (Add e1 e2) = showExpSub e1 e2 "+"
+showExp (Sub e1 e2) = showExpSub e1 e2 "-"
+showExp (Mul e1 e2) = showExpSub e1 e2 "*"
+showExp (Div e1 e2) = showExpSub e1 e2 "`div`"
+showExp (Pow e1 e2) = showExpSub e1 e2 "^"
 showExp _ = error "Expression cannot be handled (yet)."
 
+showExpSub :: Exp -> Exp -> String -> String
+showExpSub e1 e2 operator = "(" ++ showExp e1 ++ operator ++ showExp e2 ++ ")" 
+-- Wraps expression and math operation in paratheses
 
 evalSimple :: Exp -> Integer
 evalSimple (Cst x) = x
