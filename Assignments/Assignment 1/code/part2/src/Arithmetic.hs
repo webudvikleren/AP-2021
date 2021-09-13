@@ -24,17 +24,27 @@ import Definitions
 -}
 showExp :: Exp -> String
 showExp (Cst x) = show x
-showExp (Add e1 e2) = "(" ++ showExp e1 ++ "+" ++ showExp e2 ++ ")"
-showExp (Sub e1 e2) = "(" ++ showExp e1 ++ "-" ++ showExp e2 ++ ")"
-showExp (Mul e1 e2) = "(" ++ showExp e1 ++ "*" ++ showExp e2 ++ ")"
-showExp (Div e1 e2) = "(" ++ showExp e1 ++ "`div`" ++ showExp e2 ++ ")"
-showExp (Pow e1 e2) = "(" ++ showExp e1 ++ "^" ++ showExp e2 ++ ")"
+showExp (Add e1 e2) = showExpSub e1 e2 "+"
+showExp (Sub e1 e2) = showExpSub e1 e2 "-"
+showExp (Mul e1 e2) = showExpSub e1 e2 "*"
+showExp (Div e1 e2) = showExpSub e1 e2 "`div`"
+showExp (Pow e1 e2) = showExpSub e1 e2 "^"
 showExp _ = error "Expression cannot be handled (yet)."
 
 {-
--- summary: evaluates a simple expression. 
+-- summary: aux function to simplify showExp a bit.
+-- params: Exp, Exp, String (operator)
+-- return value: String, e.g. the resulting expression formed as a string.
+-- remarks: Cannot handle expressions: If, Var, Let and Sum. 
+-}
+showExpSub :: Exp -> Exp -> String -> String
+showExpSub e1 e2 operator = "(" ++ showExp e1 ++ operator ++ showExp e2 ++ ")" 
+-- Wraps expression and math operation in paratheses
+
+{-
+-- summary: evaluates a simple expression
 -- params: Exp, e.g. Add (Cst 1) (Cst 1)
--- return value: Integer, the result of the expression.
+-- return value: Integer, e.g. result 2
 -- remarks: Cannot handle expressions: If, Var, Let and Sum. 
 -}
 evalSimple :: Exp -> Integer
