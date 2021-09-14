@@ -23,7 +23,7 @@ import Definitions
 -- remarks: Cannot handle expressions: If, Var, Let and Sum. 
 -}
 showExp :: Exp -> String
-showExp (Cst x) = show x
+showExp (Cst x) = let (h:t) = show x in if h == '-' then "(" ++ (h:t) ++ ")" else show x
 showExp (Add e1 e2) = showExpSub e1 e2 "+"
 showExp (Sub e1 e2) = showExpSub e1 e2 "-"
 showExp (Mul e1 e2) = showExpSub e1 e2 "*"
@@ -42,6 +42,18 @@ showExpSub e1 e2 operator = "(" ++ showExp e1 ++ operator ++ showExp e2 ++ ")"
 -- Wraps expression and math operation in paratheses
 
 {-
+showExpSub :: Exp -> Exp -> String -> String
+showExpSub e1 e2 operator = case operator of
+  "+" -> let (h:t) = showExp e2 in 
+    if h == '-' then "(" ++ showExp e1 ++ (h:t) ++ ")"
+    else "(" ++ showExp e1 ++ operator ++ (h:t) ++ ")"
+  "-" -> let (h:t) = showExp e2 in 
+    if h == '-' then "(" ++ showExp e1 ++ "+" ++ t ++ ")"
+    else "(" ++ showExp e1 ++ operator ++ (h:t) ++ ")"
+  _ -> "(" ++ showExp e1 ++ operator ++ showExp e2 ++ ")" 
+-}
+
+{-
 -- summary: evaluates a simple expression
 -- params: Exp, e.g. Add (Cst 1) (Cst 1)
 -- return value: Integer, e.g. result 2
@@ -52,10 +64,13 @@ evalSimple (Cst x) = x
 evalSimple (Add e1 e2) = evalSimple e1 + evalSimple e2
 evalSimple (Sub e1 e2) = evalSimple e1 - evalSimple e2
 evalSimple (Mul e1 e2) = evalSimple e1 * evalSimple e2
-evalSimple (Div e1 e2) = if evalSimple e2 == 0 then error "Division by zero."
-                         else div (evalSimple e1) (evalSimple e2)
-evalSimple (Pow e1 e2) = if evalSimple e2 < 0 then error "Exponent is negative."
-                         else evalSimple e1 ^ evalSimple e2
+evalSimple (Div e1 e2) = let snd = evalSimple e2 in 
+                         if snd == 0 then error "Division by zero."
+                         else div (evalSimple e1) snd
+evalSimple (Pow e1 e2) = let fst = evalSimple e1; snd = evalSimple e2 in
+                         if snd < 0 then error "Neg. exponent"
+                         else if fst < 0 then fst ^ snd else fst ^ snd
+                         -- Forcing evaluation of base in case of exponent of 0
 evalSimple _ = error "Expression cannot be handled (yet)"
 
 {-
@@ -85,8 +100,9 @@ evalFull (Sub e1 e2) r = evalFull e1 r - evalFull e2 r
 evalFull (Mul e1 e2) r = evalFull e1 r * evalFull e2 r
 evalFull (Div e1 e2) r = if evalFull e2 r == 0 then error "Div by zero."
                          else div (evalFull e1 r) (evalFull e2 r)
-evalFull (Pow e1 e2) r = if evalFull e2 r < 0 then error "Neg Exponent."
-                         else evalFull e1 r ^ evalFull e2 r
+evalFull (Pow e1 e2) r = let fst = evalFull e1 r; snd = evalFull e2 r in
+                         if snd < 0 then error "Neg. exponent"
+                         else fst ^ snd
 evalFull (If test yes no) r = if evalFull test r /= 0 then 
                                               evalFull yes r else 
                                               evalFull no r
@@ -120,7 +136,7 @@ evalErr (If test yes no) r = do {x <- evalErr test r ;
 evalErr (Var variableName) r = case r variableName of
                                     Nothing -> Left (EBadVar variableName)
                                     Just a -> Right a
-evalErr (Let var def body) r = evalErr body (extendEnv var (evalFull def r) r)
+evalErr (Let var def body) r = do {x <- evalErr def r; evalErr body (extendEnv var x r)}
 evalErr (Sum var from to body) r = do {
       x <- evalErr from r ;
       y <- evalErr to r ;

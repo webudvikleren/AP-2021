@@ -50,8 +50,8 @@ insert x t@(Node a l r)   | x == a = t
 data PTree a = PLeaf | PNode a (PTree a) (PTree a)
 
 --pinsert :: FIXME  -- uncomment and replace with the proper type of pinsert
-pinsert :: Ord a => PTree a -> a -> PTree a
-pinsert PLeaf x = PNode x PLeaf PLeaf
-pinsert t@(PNode a l r) x | x == a = t
-                        | x < a = PNode a (pinsert l x) r
-                        | x > a = PNode a l (pinsert r x)
+pinsert :: Ord a => a -> PTree a -> PTree a
+pinsert x PLeaf = PNode x PLeaf PLeaf
+pinsert x t@(PNode a l r) | x == a = t
+                        | x < a = PNode a (pinsert x l) r
+                        | x > a = PNode a l (pinsert x r)
