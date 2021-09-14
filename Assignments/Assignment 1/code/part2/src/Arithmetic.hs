@@ -1,4 +1,4 @@
--- This is a skeleton file for you to edit
+{-# LANGUAGE BangPatterns #-}
 
 module Arithmetic
   (
@@ -23,7 +23,8 @@ import Definitions
 -- remarks: Cannot handle expressions: If, Var, Let and Sum. 
 -}
 showExp :: Exp -> String
-showExp (Cst x) = let (h:t) = show x in if h == '-' then "(" ++ (h:t) ++ ")" else show x
+showExp (Cst x) = let (h:t) = show x in if h == '-' then "(" ++ (h:t) ++ ")"
+                                        else show x
 showExp (Add e1 e2) = showExpSub e1 e2 "+"
 showExp (Sub e1 e2) = showExpSub e1 e2 "-"
 showExp (Mul e1 e2) = showExpSub e1 e2 "*"
@@ -39,19 +40,7 @@ showExp _ = error "Expression cannot be handled (yet)."
 -}
 showExpSub :: Exp -> Exp -> String -> String
 showExpSub e1 e2 operator = "(" ++ showExp e1 ++ operator ++ showExp e2 ++ ")" 
--- Wraps expression and math operation in paratheses
 
-{-
-showExpSub :: Exp -> Exp -> String -> String
-showExpSub e1 e2 operator = case operator of
-  "+" -> let (h:t) = showExp e2 in 
-    if h == '-' then "(" ++ showExp e1 ++ (h:t) ++ ")"
-    else "(" ++ showExp e1 ++ operator ++ (h:t) ++ ")"
-  "-" -> let (h:t) = showExp e2 in 
-    if h == '-' then "(" ++ showExp e1 ++ "+" ++ t ++ ")"
-    else "(" ++ showExp e1 ++ operator ++ (h:t) ++ ")"
-  _ -> "(" ++ showExp e1 ++ operator ++ showExp e2 ++ ")" 
--}
 
 {-
 -- summary: evaluates a simple expression
@@ -67,9 +56,9 @@ evalSimple (Mul e1 e2) = evalSimple e1 * evalSimple e2
 evalSimple (Div e1 e2) = let snd = evalSimple e2 in 
                          if snd == 0 then error "Division by zero."
                          else div (evalSimple e1) snd
-evalSimple (Pow e1 e2) = let fst = evalSimple e1; snd = evalSimple e2 in
+evalSimple (Pow e1 e2) = let !fst = evalSimple e1; snd = evalSimple e2 in
                          if snd < 0 then error "Neg. exponent"
-                         else if fst < 0 then fst ^ snd else fst ^ snd
+                         else fst ^ snd
                          -- Forcing evaluation of base in case of exponent of 0
 evalSimple _ = error "Expression cannot be handled (yet)"
 
@@ -136,7 +125,8 @@ evalErr (If test yes no) r = do {x <- evalErr test r ;
 evalErr (Var variableName) r = case r variableName of
                                     Nothing -> Left (EBadVar variableName)
                                     Just a -> Right a
-evalErr (Let var def body) r = do {x <- evalErr def r; evalErr body (extendEnv var x r)}
+evalErr (Let var def body) r = do {x <- evalErr def r;
+                                   evalErr body (extendEnv var x r)}
 evalErr (Sum var from to body) r = do {
       x <- evalErr from r ;
       y <- evalErr to r ;
