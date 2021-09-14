@@ -89,7 +89,7 @@ evalFull (Sub e1 e2) r = evalFull e1 r - evalFull e2 r
 evalFull (Mul e1 e2) r = evalFull e1 r * evalFull e2 r
 evalFull (Div e1 e2) r = if evalFull e2 r == 0 then error "Div by zero."
                          else div (evalFull e1 r) (evalFull e2 r)
-evalFull (Pow e1 e2) r = let fst = evalFull e1 r; snd = evalFull e2 r in
+evalFull (Pow e1 e2) r = let !fst = evalFull e1 r; snd = evalFull e2 r in
                          if snd < 0 then error "Neg. exponent"
                          else fst ^ snd
 evalFull (If test yes no) r = if evalFull test r /= 0 then 
