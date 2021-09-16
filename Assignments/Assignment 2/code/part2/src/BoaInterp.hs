@@ -18,8 +18,13 @@ data RunError = EBadVar VName | EBadFun FName | EBadArg String
 newtype Comp a = Comp {runComp :: Env -> (Either RunError a, [String]) }
 
 instance Monad Comp where
-  return = undefined
-  (>>=) = undefined
+  return a = Comp (\e -> (Right a, []))
+  m >>= f = Comp (\e -> case runComp m e of
+                        (Left x, ls) -> (Left x, ls)
+                        (Right y, ls) -> case runComp (f y) e of
+                          (Left z, ls') -> (Left z, ls')
+                          (Right v, ls') -> (Right v, ls <> ls'))
+
 
 -- You shouldn't need to modify these
 instance Functor Comp where
