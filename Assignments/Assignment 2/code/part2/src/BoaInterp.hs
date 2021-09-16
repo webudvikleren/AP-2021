@@ -34,16 +34,19 @@ instance Applicative Comp where
 
 -- Operations of the monad
 abort :: RunError -> Comp a
-abort = undefined
+abort re = Comp (\e -> (Left re, []))
 
 look :: VName -> Comp Value
-look = undefined
+look varName = Comp (\e -> case lookup varName e of
+               Nothing -> (Left (EBadVar varName), [])
+               Just x -> (Right x, []))
 
 withBinding :: VName -> Value -> Comp a -> Comp a
-withBinding = undefined
+withBinding x v m = Comp (\e -> let newE = e ++ [(x,v)]
+                                in runComp m newE)
 
 output :: String -> Comp ()
-output = undefined
+output s = Comp (\e -> (Right (), [s]))
 
 -- Helper functions for interpreter
 truthy :: Value -> Bool
