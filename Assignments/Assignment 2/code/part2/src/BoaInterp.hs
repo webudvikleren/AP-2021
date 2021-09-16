@@ -50,7 +50,12 @@ output s = Comp (\e -> (Right (), [s]))
 
 -- Helper functions for interpreter
 truthy :: Value -> Bool
-truthy = undefined
+truthy NoneVal = False
+truthy TrueVal = True
+truthy FalseVal = False
+truthy (IntVal x) = x /= 0
+truthy (StringVal s) = s /= []
+truthy (ListVal xs) = xs /= []
 
 operate :: Op -> Value -> Value -> Either String Value
 operate = undefined
