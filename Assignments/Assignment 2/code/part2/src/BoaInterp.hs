@@ -81,8 +81,61 @@ operate In x (ListVal xs) = if x `elem` xs then Right TrueVal
                             else Right FalseVal
 operate In _ _ = Left "Cannot check membership of non-list value."
 
+--- HELPER FUNCTIONS FOR RANGE
+
+-- For checking if list contains other values than IntVals, this is used in the
+-- range function that only accepts a list of IntVals.
+checkIntVals :: Value -> Bool
+checkIntVals (IntVal _) = True
+checkIntVals _ = False
+
+-- Creates an Intval from an Int, e.g. 5 -> IntVal 5, this is used to convert
+-- back to IntVals when creating lists.
+toIntVal :: Int -> Value
+toIntVal = IntVal
+
+-- Creates a list given a range and a stepsize. Used because stepsize can be
+-- smaller then starting value, e.g. [10,1..100] which is not possible in 
+-- the built-in range functionality. So we made our own.
+range :: (Ord a, Num a) => a -> a -> a -> [a]
+range start end step = takeWhile (<=end) $ iterate (+step) start
+
+-- this is used by the range function in Boa to create lists. Either from 1, 2
+-- or 3 arguments. 
+makeIntValList :: [Value] -> [Value]
+makeIntValList [IntVal x] = map toIntVal [0..x-1]
+makeIntValList [IntVal x, IntVal y] = map toIntVal [x..y-1]
+makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
+                                              | (x <= y) && (z < 0) = []
+                                              | otherwise = 
+                                                      map toIntVal (range x y z)
+makeIntValList _ = undefined 
+
+---HELPER FUNCTIONS FOR PRINT
+
+format :: Bool -> String
+format inList = if inList then ", " else " "
+
+--- Dont know how to make this work with ListVal.
+valToString :: Bool -> Value -> String
+valToString inList NoneVal = "None" ++ format inList
+valToString inList TrueVal = "True" ++ format inList
+valToString inList FalseVal = "False" ++ format inList
+valToString inList (IntVal x) = show x ++ format inList
+valToString inList (StringVal s) = s ++ format inList
+valToString inList (ListVal []) = "[]"
+valToString inList (ListVal xs) = undefined
+
+--TODO: finish print.
 apply :: FName -> [Value] -> Comp Value
-apply = undefined
+apply "range" xs 
+      | not (all checkIntVals xs) = abort (EBadArg "Non-integer args.")
+      | length xs < 1 || length xs > 3 = abort (EBadArg "Wrong # of args")
+      | length xs == 3 && xs !! 2 == IntVal 0 = abort (EBadArg "Stepsize 0")
+      | otherwise = return (ListVal (makeIntValList xs))
+
+apply "print" xs = undefined
+apply _ _ = abort (EBadFun "Unknown function.")
 
 -- Main functions of interpreter
 eval :: Exp -> Comp Value
