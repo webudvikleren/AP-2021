@@ -82,7 +82,19 @@ operate In x (ListVal xs) = if x `elem` xs then Right TrueVal
 operate In _ _ = Left "Cannot check membership of non-list value."
 
 apply :: FName -> [Value] -> Comp Value
-apply = undefined
+apply "print" (x:xs) = Comp (\e -> 
+  (output (printSub x))
+  (Right NoneVal, [])
+)
+
+printSub :: Value -> String
+printSub input = case input of
+  (IntVal n) -> show n
+  (NoneVal) -> "None"
+  (TrueVal) -> "True"
+  (FalseVal) -> "False"
+  (StringVal str) -> str
+  (ListVal (x':xs')) -> "["
 
 -- Main functions of interpreter
 eval :: Exp -> Comp Value
