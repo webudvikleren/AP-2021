@@ -124,7 +124,9 @@ valToString inList FalseVal = "False" ++ format inList
 valToString inList (IntVal x) = show x ++ format inList
 valToString inList (StringVal s) = s ++ format inList
 valToString inList (ListVal []) = "[]"
-valToString inList (ListVal xs) = undefined
+valToString inList (ListVal (x:xs)) = valToString True x ++
+                                      valToString True (ListVal xs)
+                                      
 
 --TODO: finish print.
 apply :: FName -> [Value] -> Comp Value
@@ -134,7 +136,7 @@ apply "range" xs
       | length xs == 3 && xs !! 2 == IntVal 0 = abort (EBadArg "Stepsize 0")
       | otherwise = return (ListVal (makeIntValList xs))
 
-apply "print" xs = undefined
+apply "print" (x:xs) = undefined
 apply _ _ = abort (EBadFun "Unknown function.")
 
 -- Main functions of interpreter
