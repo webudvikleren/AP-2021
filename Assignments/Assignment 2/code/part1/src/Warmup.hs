@@ -11,7 +11,6 @@ type StateData = Double
 newtype RWSP a = RWSP {runRWSP :: ReadData -> StateData ->
                                              (a, WriteData, StateData)}
 
--- OBS! Unsure about BIND, ask TA.
 -- complete the definitions
 instance Monad RWSP where
   return a = RWSP (\_ s -> (a, mempty, s))

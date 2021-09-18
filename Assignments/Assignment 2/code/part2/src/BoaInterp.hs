@@ -81,24 +81,96 @@ operate In x (ListVal xs) = if x `elem` xs then Right TrueVal
                             else Right FalseVal
 operate In _ _ = Left "Cannot check membership of non-list value."
 
-apply :: FName -> [Value] -> Comp Value
-apply "print" (x:xs) = Comp (\e -> 
-  (output (printSub x))
-  (Right NoneVal, [])
-)
+--- HELPER FUNCTIONS FOR RANGE
 
-printSub :: Value -> String
-printSub input = case input of
-  (IntVal n) -> show n
-  (NoneVal) -> "None"
-  (TrueVal) -> "True"
-  (FalseVal) -> "False"
-  (StringVal str) -> str
-  (ListVal (x':xs')) -> "["
+-- For checking if list contains other values than IntVals, this is used in the
+-- range function that only accepts a list of IntVals.
+checkIntVals :: Value -> Bool
+checkIntVals (IntVal _) = True
+checkIntVals _ = False
+
+-- Creates an Intval from an Int, e.g. 5 -> IntVal 5, this is used to convert
+-- back to IntVals when creating lists.
+toIntVal :: Int -> Value
+toIntVal = IntVal
+
+-- Creates a list given a range and a stepsize. Used because stepsize can be
+-- smaller then starting value, e.g. [10,1..100] which is not possible in 
+-- the built-in range functionality. So we made our own.
+range :: (Ord a, Num a) => a -> a -> a -> [a]
+range start end step = takeWhile (<=end) $ iterate (+step) start
+
+-- this is used by the range function in Boa to create lists. Either from 1, 2
+-- or 3 arguments. 
+makeIntValList :: [Value] -> [Value]
+makeIntValList [IntVal x] = map toIntVal [0..x-1]
+makeIntValList [IntVal x, IntVal y] = map toIntVal [x..y-1]
+makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
+                                              | (x <= y) && (z < 0) = []
+                                              | otherwise = 
+                                                      map toIntVal (range x y z)
+makeIntValList _ = undefined 
+
+---HELPER FUNCTIONS FOR PRINT
+
+format :: Bool -> String
+format inList = if inList then ", " else " "
+
+--- Dont know how to make this work with ListVal.
+valToString :: Value -> String
+valToString NoneVal = "None"
+valToString TrueVal = "True"
+valToString FalseVal = "False"
+valToString (IntVal x) = show x
+valToString (StringVal s) = s
+valToString (ListVal []) = "[]"
+valToString (ListVal [x]) = (valToString x)
+valToString (ListVal (x:xs)) = parseValue x ++ ", " ++
+                                      valToString (ListVal xs)
+
+parseValue :: Value -> String
+parseValue x = case x of
+  ListVal y -> "[" ++ (valToString (ListVal y)) ++ "]"
+  _ -> valToString x
+                                      
+--TODO: finish print.
+apply :: FName -> [Value] -> Comp Value
+apply "range" xs 
+      | not (all checkIntVals xs) = abort (EBadArg "Non-integer args.")
+      | length xs < 1 || length xs > 3 = abort (EBadArg "Wrong # of args")
+      | length xs == 3 && xs !! 2 == IntVal 0 = abort (EBadArg "Stepsize 0")
+      | otherwise = return (ListVal (makeIntValList xs))
+
+apply "print" [] = return NoneVal
+apply "print" [x] = output (parseValue x) >> output "\n" >> apply "print" []
+apply "print" (x:xs) = output (parseValue x ++ " ") >> apply "print" xs
+apply _ _ = abort (EBadFun "Unknown function.")
 
 -- Main functions of interpreter
 eval :: Exp -> Comp Value
-eval = undefined
+eval e = case e of
+  Const v -> return v
+  Var name -> look name
+  Oper op e1 e2 -> do
+    x <- eval e1
+    y <- eval e2
+    case operate op x y of
+      Left str -> abort(EBadArg str)
+      Right v -> return v
+  Not e1 -> do
+    x <- eval e1
+    return (if (truthy x) then FalseVal else TrueVal)
+  Call f es -> do
+    values <- eval (List es)
+    case values of
+      (ListVal values') -> apply f values'
+  List [x] -> do
+    x' <- eval x
+    return x'
+  List (e1:es) -> do
+    x <- eval e1
+    y <- eval (List es)
+    return (ListVal ([x] ++ [y]))
 
 exec :: Program -> Comp ()
 exec = undefined
