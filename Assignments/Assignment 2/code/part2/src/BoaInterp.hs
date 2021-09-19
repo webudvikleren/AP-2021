@@ -146,6 +146,9 @@ apply "print" [x] = output (parseValue x) >> output "\n" >> apply "print" []
 apply "print" (x:xs) = output (parseValue x ++ " ") >> apply "print" xs
 apply _ _ = abort (EBadFun "Unknown function.")
 
+merge :: Value -> [Value]
+merge = undefined
+
 -- Main functions of interpreter
 eval :: Exp -> Comp Value
 eval e = case e of
@@ -164,13 +167,42 @@ eval e = case e of
     values <- eval (List es)
     case values of
       (ListVal values') -> apply f values'
+  List [] -> do
+    return (ListVal [])
   List [x] -> do
     x' <- eval x
-    return x'
+    return (ListVal [x'])
   List (e1:es) -> do
     x <- eval e1
     y <- eval (List es)
-    return (ListVal ([x] ++ [y]))
+    case y of 
+      (ListVal y') -> return (ListVal ([x] ++ y'))
+  Compr e0 [c] ->
+    case c of 
+      (CCFor name e1) -> do
+        expressionValues <- eval e1
+        case expressionValues of
+          (ListVal values) -> do
+            mappedValues <- mapM (\value -> withBinding name value (eval e0)) values
+            return (ListVal mappedValues)
+          _ -> abort (EBadArg "Expression not a list")
+      (CCIf e1) -> do
+        checkVal <- eval e1
+        val <- eval e0
+        if truthy checkVal then
+           return (ListVal [val])
+        else
+          return (ListVal [])
+  Compr e0 (c:cs) ->
+    case c of 
+      (CCFor name e1) -> do
+        expressionValues <- eval e1
+        case expressionValues of
+          (ListVal values) -> do
+            mappedValues <- mapM (\value -> withBinding name value (eval (Compr e0 cs))) values
+            return (ListVal (concat (map (\value -> case value of
+              (ListVal tester) -> tester) mappedValues)))
+          _ -> abort (EBadArg "Expression not a list")
 
 exec :: Program -> Comp ()
 exec = undefined
