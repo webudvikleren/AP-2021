@@ -108,7 +108,7 @@ makeIntValList [IntVal x, IntVal y] = map toIntVal [x..y-1]
 makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
                                               | (x <= y) && (z < 0) = []
                                               | otherwise = 
-                                                      map toIntVal (range x y z)
+                                                      map toIntVal (range x (y-1) z)
 makeIntValList _ = undefined 
 
 ---HELPER FUNCTIONS FOR PRINT
