@@ -18,11 +18,11 @@ data RunError = EBadVar VName | EBadFun FName | EBadArg String
 newtype Comp a = Comp {runComp :: Env -> (Either RunError a, [String]) }
 
 instance Monad Comp where
-  return a = Comp (\e -> (Right a, []))
+  return a = Comp (\_ -> (Right a, []))
   m >>= f = Comp (\e -> case runComp m e of
                         (Left x, ls) -> (Left x, ls)
                         (Right y, ls) -> case runComp (f y) e of
-                          (Left z, ls') -> (Left z, ls')
+                          (Left z, ls') -> (Left z, ls <> ls')
                           (Right v, ls') -> (Right v, ls <> ls'))
 
 
@@ -34,7 +34,7 @@ instance Applicative Comp where
 
 -- Operations of the monad
 abort :: RunError -> Comp a
-abort re = Comp (\e -> (Left re, []))
+abort re = Comp (\_ -> (Left re, []))
 
 look :: VName -> Comp Value
 look varName = Comp (\e -> case lookup varName e of
@@ -42,11 +42,11 @@ look varName = Comp (\e -> case lookup varName e of
                Just x -> (Right x, []))
 
 withBinding :: VName -> Value -> Comp a -> Comp a
-withBinding x v m = Comp (\e -> let newE = e ++ [(x,v)]
+withBinding x v m = Comp (\e -> let newE = [(x,v)] ++ e
                                 in runComp m newE)
 
 output :: String -> Comp ()
-output s = Comp (\e -> (Right (), [s]))
+output s = Comp (\_ -> (Right (), [s]))
 
 -- Helper functions for interpreter
 truthy :: Value -> Bool
@@ -95,10 +95,13 @@ toIntVal :: Int -> Value
 toIntVal = IntVal
 
 -- Creates a list given a range and a stepsize. Used because stepsize can be
--- smaller then starting value, e.g. [10,1..100] which is not possible in 
--- the built-in range functionality. So we made our own.
+-- smaller then starting value, e.g. [10,2..100] which is not possible in 
+-- the built-in range functionality. So we made our own. This also accomodates
+-- negative step-sizes.
 range :: (Ord a, Num a) => a -> a -> a -> [a]
-range start end step = takeWhile (<=end) $ iterate (+step) start
+range start end step = if step > 0
+                       then takeWhile (<=end) $ iterate (+step) start
+                  else takeWhile (>end) $ iterate (subtract ((-1)*step)) start
 
 -- this is used by the range function in Boa to create lists. Either from 1, 2
 -- or 3 arguments. 
@@ -107,14 +110,13 @@ makeIntValList [IntVal x] = map toIntVal [0..x-1]
 makeIntValList [IntVal x, IntVal y] = map toIntVal [x..y-1]
 makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
                                               | (x <= y) && (z < 0) = []
-                                              | otherwise = 
-                                                      map toIntVal (range x (y-1) z)
+                                              | otherwise =
+                                                if z > 0 then 
+                                                map toIntVal (range x (y-1) z)
+                                                else map toIntVal (range x y z)
 makeIntValList _ = undefined 
 
 ---HELPER FUNCTIONS FOR PRINT
-
-format :: Bool -> String
-format inList = if inList then ", " else " "
 
 --- Dont know how to make this work with ListVal.
 valToString :: Value -> String
@@ -124,15 +126,15 @@ valToString FalseVal = "False"
 valToString (IntVal x) = show x
 valToString (StringVal s) = s
 valToString (ListVal []) = "[]"
-valToString (ListVal [x]) = (valToString x)
+valToString (ListVal [x]) = valToString x
 valToString (ListVal (x:xs)) = parseValue x ++ ", " ++
                                       valToString (ListVal xs)
 
 parseValue :: Value -> String
 parseValue x = case x of
-  ListVal y -> "[" ++ (valToString (ListVal y)) ++ "]"
+  ListVal y -> "[" ++ valToString (ListVal y) ++ "]"
   _ -> valToString x
-                                      
+--print(True,False,-3,'hello')                  
 --TODO: finish print.
 apply :: FName -> [Value] -> Comp Value
 apply "range" xs 
@@ -142,9 +144,9 @@ apply "range" xs
       | otherwise = return (ListVal (makeIntValList xs))
 
 apply "print" [] = return NoneVal
-apply "print" [x] = output (parseValue x) >> output "\n" >> apply "print" []
+apply "print" [x] = output (parseValue x) >> apply "print" []
 apply "print" (x:xs) = output (parseValue x ++ " ") >> apply "print" xs
-apply _ _ = abort (EBadFun "Unknown function.")
+apply fun _ = abort (EBadFun fun)
 
 merge :: Value -> [Value]
 merge = undefined
@@ -162,7 +164,7 @@ eval e = case e of
       Right v -> return v
   Not e1 -> do
     x <- eval e1
-    return (if (truthy x) then FalseVal else TrueVal)
+    return (if truthy x then FalseVal else TrueVal)
   Call f es -> do
     values <- eval (List es)
     case values of
@@ -200,8 +202,7 @@ eval e = case e of
         case expressionValues of
           (ListVal values) -> do
             mappedValues <- mapM (\value -> withBinding name value (eval (Compr e0 cs))) values
-            return (ListVal (concat (map (\value -> case value of
-              (ListVal tester) -> tester) mappedValues)))
+            return (ListVal (concatMap (\value -> case value of (ListVal tester) -> tester) mappedValues))
           _ -> abort (EBadArg "Expression not a list")
 
 exec :: Program -> Comp ()

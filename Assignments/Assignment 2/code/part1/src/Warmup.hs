@@ -30,20 +30,20 @@ askP = RWSP (\r s -> (r, mempty, s))  -- freebie
 
 -- runs computation with new read data
 withP :: ReadData -> RWSP a -> RWSP a
-withP r' m = RWSP (\r s -> runRWSP m r' s)
+withP r' m = RWSP (\_ s -> runRWSP m r' s)
 
 -- adds some write data to accumulator
 -- w <> mempty == mempty <> w = w
 tellP :: WriteData -> RWSP ()
-tellP w = RWSP (\r s -> ((), w, s))
+tellP w = RWSP (\_ s -> ((), w, s))
 
 -- returns current state data
 getP :: RWSP StateData
-getP = RWSP (\r s -> (s, mempty, s))
+getP = RWSP (\_ s -> (s, mempty, s))
 
 -- overwrites the state data
 putP :: StateData -> RWSP ()
-putP s' = RWSP (\r s -> ((), mempty, s'))
+putP s' = RWSP (\_ _ -> ((), mempty, s'))
 
 -- sample computation using all features
 type Answer = String
@@ -87,19 +87,19 @@ askE :: RWSE ReadData
 askE = RWSE (\r s -> Right (r, mempty, s))
 
 withE :: ReadData -> RWSE a -> RWSE a
-withE r' m = RWSE (\r s -> runRWSE m r' s)
+withE r' m = RWSE (\_ s -> runRWSE m r' s)
 
 tellE :: WriteData -> RWSE ()
-tellE w = RWSE (\r s -> Right ((), w, s))
+tellE w = RWSE (\_ s -> Right ((), w, s))
 
 getE :: RWSE StateData
-getE = RWSE (\r s -> Right (s, mempty, s))
+getE = RWSE (\_ s -> Right (s, mempty, s))
 
 putE :: StateData -> RWSE ()
-putE s' = RWSE (\r s -> Right ((), mempty, s'))
+putE s' = RWSE (\_ _ -> Right ((), mempty, s'))
 
 throwE :: ErrorData -> RWSE a
-throwE e = RWSE (\r s -> Left e)
+throwE e = RWSE (\_ _ -> Left e)
 
 sampleE :: RWSE Answer
 sampleE =

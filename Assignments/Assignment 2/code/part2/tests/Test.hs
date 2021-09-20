@@ -80,8 +80,18 @@ tests = testGroup "Test Suite" [
                                    (x', s') = (isLeft x, s)
                                    in (x', s) @=? (True, []),
     testCase "print" $ let (x, s) = (runComp (apply "print" [IntVal 42, StringVal "foo", ListVal [TrueVal, ListVal []], IntVal (-1)]) [])
-                                        in (x, s) @=? (Right NoneVal, ["42 ", "foo ", "[True, []]", "-1", "\n"]),
+                                        in (x, s) @=? (Right NoneVal, ["42 foo [True, []] -1"]),
     testCase "wrong fun" $ let (x, s) = (runComp (apply "wrong" []) [])
                                (x', s') = (isLeft x, s)
-                               in (x', s) @=? (True, [])]]
+                               in (x', s) @=? (True, [])],
+   testGroup "Eval tests"
+   [testCase "Const 5" $ runComp (eval (Const (IntVal 5))) [] @=? (Right (IntVal 5), []),
+    testCase "Oper (1+1)" $ runComp (eval (Oper Plus (Const (IntVal 1)) (Const (IntVal 1)))) [] @=? (Right (IntVal 2), []),
+    testCase "Oper (1+None)" $ let (x, s) = runComp (eval (Oper Plus (Const (IntVal 1)) (Const NoneVal))) []
+                                   (x', s') = (isLeft x, s)
+                                   in (x', s) @=? (True, []),
+    testCase "Not 1" $ runComp (eval (Not (Const (IntVal 1)))) [] @=? (Right FalseVal, []),
+    testCase "Not 0" $ runComp (eval (Not (Const (IntVal 0)))) [] @=? (Right TrueVal, []),
+    testCase "Call range [1,10,3]" $ runComp (eval (Call "range" [Const (IntVal 1), Const (IntVal 10), Const (IntVal 3)])) [] @=? (Right (ListVal [IntVal 1, IntVal 4, IntVal 7]), [])]
+   ]
     
