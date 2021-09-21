@@ -59,6 +59,8 @@ truthy (IntVal x) = x /= 0
 truthy (StringVal s) = s /= []
 truthy (ListVal xs) = xs /= []
 
+-- Applies the operate to two values. Resulting in either the operator actually
+-- being applied or an error if the input is not correct.
 operate :: Op -> Value -> Value -> Either String Value
 operate Plus (IntVal x) (IntVal y) = Right (IntVal (x+y))
 operate Plus _ _ = Left "Cannot add non-integer values."
@@ -98,15 +100,16 @@ toIntVal = IntVal
 
 -- Creates a list given a range and a stepsize. Used because stepsize can be
 -- smaller then starting value, e.g. [10,2..100] which is not possible in 
--- the built-in range functionality. So we made our own. This also accomodates
--- negative step-sizes.
+-- the built-in range functionality. This also accomodates negative step-sizes.
 range :: (Ord a, Num a) => a -> a -> a -> [a]
 range start end step = if step > 0
                        then takeWhile (<=end) $ iterate (+step) start
                   else takeWhile (>end) $ iterate (subtract ((-1)*step)) start
 
 -- this is used by the range function in Boa to create lists. Either from 1, 2
--- or 3 arguments. 
+-- or 3 arguments. We use the built-in list-range functionality of haskell for
+-- the case of 1 or 2 arguments and cast it as IntVals afterwards.
+-- For the case of 3 arugments we defined the function "range" to handle it.
 makeIntValList :: [Value] -> [Value]
 makeIntValList [IntVal x] = map toIntVal [0..x-1]
 makeIntValList [IntVal x, IntVal y] = map toIntVal [x..y-1]
@@ -116,11 +119,10 @@ makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
                                                 if z > 0 then 
                                                 map toIntVal (range x (y-1) z)
                                                 else map toIntVal (range x y z)
-makeIntValList _ = undefined 
 
 ---HELPER FUNCTIONS FOR PRINT
 
---- Dont know how to make this work with ListVal.
+-- converts a value to the corresponding string.
 valToString :: Value -> String
 valToString NoneVal = "None"
 valToString TrueVal = "True"
@@ -133,26 +135,28 @@ valToString (ListVal (x:xs)) = parseValue x ++ ", " ++
                                       valToString (ListVal xs)
 
 -- HELPER functions for printing
+-- parses an invidual value as a string using "valToString".
 parseValue :: Value -> String
 parseValue x = case x of
   ListVal [x] -> "[" ++ valToString x ++ "]"
   ListVal (x:xs) -> "[" ++ valToString (ListVal (x:xs)) ++ "]"
   _ -> valToString x
 
+--- Parses a list of values to a string. It uses the function "parseValue" to
+--- parse the individual values.
 parseValues :: [Value] -> String
 parseValues [] = ""
 parseValues [x] = parseValue x
 parseValues (x:xs) = parseValue x ++ " " ++ parseValues xs
 
---print(True,False,-3,'hello')                  
---TODO: finish print.
+-- applies valid function to the list of values. Note that all error handling
+-- occurs here and thus no checks are necessary in the helper functions.
 apply :: FName -> [Value] -> Comp Value
 apply "range" xs 
       | not (all checkIntVals xs) = abort (EBadArg "Non-integer args.")
       | length xs < 1 || length xs > 3 = abort (EBadArg "Wrong # of args")
       | length xs == 3 && xs !! 2 == IntVal 0 = abort (EBadArg "Stepsize 0")
       | otherwise = return (ListVal (makeIntValList xs))
-
 apply "print" [] = output "" >> return NoneVal
 apply "print" [x] = output (parseValue x) >> return NoneVal
 apply "print" (x:xs) = output (parseValues (x:xs)) >> return NoneVal
@@ -198,8 +202,8 @@ eval e = case e of
           (ListVal []) -> do
             return (ListVal [])
           (ListVal l) -> do
-            mappedValues <- mapM (\value -> 
-              withBinding name value (eval (Compr e0 cs))) l
+            mappedValues <- mapM (\value ->
+                                  withBinding name value (eval (Compr e0 cs))) l
             return (ListVal (concatMap (\case
               (ListVal tester) -> tester
               _ -> []) mappedValues))
