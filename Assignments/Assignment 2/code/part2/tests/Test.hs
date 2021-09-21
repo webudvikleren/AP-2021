@@ -101,6 +101,12 @@ tests = testGroup "Test Suite" [
     testCase "Call Print ()" $ runComp (eval (Call "print" [])) [] @=? (Right NoneVal, [""]),
     testCase "List []" $ runComp (eval (List [])) [] @=? (Right (ListVal []), []),
     testCase "List [x]" $ runComp (eval (List [Const (StringVal "x")])) [] @=? (Right (ListVal [StringVal "x"]), []),
-    testCase "List [x,y]" $ runComp (eval (List [Const (StringVal "x"), Const (StringVal "y")])) [] @=? (Right (ListVal [StringVal "x", StringVal "y"]), [])]
+    testCase "List [x,y]" $ runComp (eval (List [Const (StringVal "x"), Const (StringVal "y")])) [] @=? (Right (ListVal [StringVal "x", StringVal "y"]), []),
+    testCase "Compr 5 []" $ runComp (eval (Compr (Const (IntVal 5)) [])) [] @=? (Right (ListVal [IntVal 5]), []),
+    testCase "Compr 5 if 2 == 2" $ runComp (eval (Compr (Const (IntVal 5)) [CCIf (Oper Eq (Const (IntVal 2)) (Const (IntVal 2)))])) [] @=? (Right (ListVal [IntVal 5]), []),
+    testCase "Compr 5 if 2 == 3" $ runComp (eval (Compr (Const (IntVal 5)) [CCIf (Oper Eq (Const (IntVal 2)) (Const (IntVal 3)))])) [] @=? (Right (ListVal []), []),
+    testCase "Compr x [1,2,3,4,5]" $ runComp (eval (Compr (Var "x") [CCFor "x" (Const (ListVal [IntVal 1, IntVal 2, IntVal 3, IntVal 4, IntVal 5]))])) [] @=? (Right (ListVal [IntVal 1, IntVal 2, IntVal 3, IntVal 4, IntVal 5]), []),
+    testCase "Compr x*x [1..10] if x%2" $ runComp (eval (Compr (Oper Times (Var "x") (Var "x")) [CCFor "x" (Call "range" [Const (IntVal 1), Const (IntVal 11)]), CCIf (Oper Mod (Var "x") (Const (IntVal 2)))])) [] @=? (Right (ListVal [IntVal 1, IntVal 9, IntVal 25, IntVal 49, IntVal 81]), []),
+    testCase "Compr x*j [1..5] if x < 3 [1..5] if j > 3" $ runComp (eval (Compr (Oper Times (Var "x") (Var "j")) [CCFor "x" (Call "range" [Const (IntVal 1), Const (IntVal 6)]), CCIf (Oper Less (Var "x") (Const (IntVal 3))), CCFor "j" (Call "range" [Const (IntVal 1), Const (IntVal 6)]), CCIf (Oper Greater (Var "j") (Const (IntVal 3)))])) [] @=? (Right (ListVal [IntVal 4, IntVal 5, IntVal 8, IntVal 10]), [])]
    ]
     
