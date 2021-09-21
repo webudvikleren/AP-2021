@@ -99,8 +99,7 @@ toIntVal = IntVal
 
 -- Creates a list given a range and a stepsize. Used because stepsize can be
 -- smaller then starting value, e.g. [10,2..100] which is not possible in 
--- the built-in range functionality. So we made our own. This also accomodates
--- negative step-sizes.
+-- the built-in range functionality. This also accomodates negative step-sizes.
 range :: (Ord a, Num a) => a -> a -> a -> [a]
 range start end step = if step > 0
                        then takeWhile (<=end) $ iterate (+step) start
@@ -119,7 +118,6 @@ makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
                                                 if z > 0 then 
                                                 map toIntVal (range x (y-1) z)
                                                 else map toIntVal (range x y z)
-makeIntValList _ = undefined 
 
 ---HELPER FUNCTIONS FOR PRINT
 
@@ -149,14 +147,14 @@ parseValues [] = ""
 parseValues [x] = parseValue x
 parseValues (x:xs) = parseValue x ++ " " ++ parseValues xs
 
-
+-- applies valid function to the list of values. Note that all error handling
+-- occurs here and thus no checks are necessary in the helper functions.
 apply :: FName -> [Value] -> Comp Value
 apply "range" xs 
       | not (all checkIntVals xs) = abort (EBadArg "Non-integer args.")
       | length xs < 1 || length xs > 3 = abort (EBadArg "Wrong # of args")
       | length xs == 3 && xs !! 2 == IntVal 0 = abort (EBadArg "Stepsize 0")
       | otherwise = return (ListVal (makeIntValList xs))
-
 apply "print" [] = output "" >> return NoneVal
 apply "print" [x] = output (parseValue x) >> return NoneVal
 apply "print" (x:xs) = output (parseValues (x:xs)) >> return NoneVal
@@ -202,7 +200,8 @@ eval e = case e of
           (ListVal []) -> do
             return (ListVal [])
           (ListVal l) -> do
-            mappedValues <- mapM (\value -> withBinding name value (eval (Compr e0 cs))) l
+            mappedValues <- mapM (\value ->
+                                  withBinding name value (eval (Compr e0 cs))) l
             return (ListVal (concatMap (\case
               (ListVal tester) -> tester
               _ -> []) mappedValues))
