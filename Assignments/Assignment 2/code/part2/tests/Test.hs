@@ -92,6 +92,15 @@ tests = testGroup "Test Suite" [
                                    in (x', s) @=? (True, []),
     testCase "Not 1" $ runComp (eval (Not (Const (IntVal 1)))) [] @=? (Right FalseVal, []),
     testCase "Not 0" $ runComp (eval (Not (Const (IntVal 0)))) [] @=? (Right TrueVal, []),
-    testCase "Call range [1,10,3]" $ runComp (eval (Call "range" [Const (IntVal 1), Const (IntVal 10), Const (IntVal 3)])) [] @=? (Right (ListVal [IntVal 1, IntVal 4, IntVal 7]), [])]
+    testCase "Call range [1,10,3]" $ runComp (eval (Call "range" [Const (IntVal 1), Const (IntVal 10), Const (IntVal 3)])) [] @=?
+                                                                 (Right (ListVal [IntVal 1, IntVal 4, IntVal 7]), []),
+    testCase "Call Range [10, 1, -3]" $ runComp (eval (Call "range" [Const (IntVal 10), Const (IntVal 1), Const (IntVal (-3))])) [] @=?
+                                                                 (Right (ListVal [IntVal 10, IntVal 7, IntVal 4]), []),
+    testCase "Call Print '42 foo [True, []] -1'" $ runComp (eval (Call "print" [Const (IntVal 42), Const (StringVal "foo")])) [] @=?
+                                                                 (Right NoneVal, ["42 foo"]),
+    testCase "Call Print ()" $ runComp (eval (Call "print" [])) [] @=? (Right NoneVal, [""]),
+    testCase "List []" $ runComp (eval (List [])) [] @=? (Right (ListVal []), []),
+    testCase "List [x]" $ runComp (eval (List [Const (StringVal "x")])) [] @=? (Right (ListVal [StringVal "x"]), []),
+    testCase "List [x,y]" $ runComp (eval (List [Const (StringVal "x"), Const (StringVal "y")])) [] @=? (Right (ListVal [StringVal "x", StringVal "y"]), [])]
    ]
     

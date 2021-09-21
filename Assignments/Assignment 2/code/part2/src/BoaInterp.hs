@@ -134,7 +134,7 @@ parseValue :: Value -> String
 parseValue x = case x of
   ListVal y -> "[" ++ valToString (ListVal y) ++ "]"
   _ -> valToString x
---print(True,False,-3,'hello')                  
+
 --TODO: finish print.
 apply :: FName -> [Value] -> Comp Value
 apply "range" xs 
