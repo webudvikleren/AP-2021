@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 -- Skeleton file for Boa Interpreter. Edit only definitions with 'undefined'
 
 module BoaInterp
@@ -42,7 +43,7 @@ look varName = Comp (\e -> case lookup varName e of
                Just x -> (Right x, []))
 
 withBinding :: VName -> Value -> Comp a -> Comp a
-withBinding x v m = Comp (\e -> let newE = [(x,v)] ++ e
+withBinding x v m = Comp (\e -> let newE = (x,v) : e
                                 in runComp m newE)
 
 output :: String -> Comp ()
@@ -132,12 +133,14 @@ valToString (ListVal (x:xs)) = parseValue x ++ ", " ++
 
 parseValue :: Value -> String
 parseValue x = case x of
-  ListVal y -> "[" ++ valToString (ListVal y) ++ "]"
+  ListVal [x] -> "[" ++ valToString x ++ "]"
+  ListVal (x:xs) -> "[" ++ valToString (ListVal (x:xs)) ++ "]"
   _ -> valToString x
 
 parseValues :: [Value] -> String
+parseValues [] = ""
 parseValues [x] = parseValue x
-parseValues (x:xs) = (parseValue x) ++ " " ++  (parseValues xs)
+parseValues (x:xs) = parseValue x ++ " " ++ parseValues xs
 
 --print(True,False,-3,'hello')                  
 --TODO: finish print.
@@ -171,6 +174,7 @@ eval e = case e of
     values <- eval (List es)
     case values of
       (ListVal values') -> apply f values'
+      _ -> abort (EBadArg "Expressions used for call must return a ListVal")
   List [] -> do
     return (ListVal [])
   List [x] -> do
@@ -180,35 +184,40 @@ eval e = case e of
     x <- eval e1
     y <- eval (List es)
     case y of 
-      (ListVal y') -> return (ListVal ([x] ++ y'))
-  Compr e0 [c] ->
-    case c of 
-      (CCFor name e1) -> do
-        expressionValues <- eval e1
-        case expressionValues of
-          (ListVal values) -> do
-            mappedValues <- mapM (\value -> withBinding name value (eval e0)) values
-            return (ListVal mappedValues)
-          _ -> abort (EBadArg "Expression not a list")
-      (CCIf e1) -> do
-        checkVal <- eval e1
-        val <- eval e0
-        if truthy checkVal then
-           return (ListVal [val])
-        else
-          return (ListVal [])
+      (ListVal y') -> return (ListVal (x : y'))
+      _ -> abort (EBadArg "Expression must return a ListVal")
+  Compr e0 [] ->
+    eval (List [e0])
   Compr e0 (c:cs) ->
     case c of 
       (CCFor name e1) -> do
         expressionValues <- eval e1
         case expressionValues of
-          (ListVal values) -> do
-            mappedValues <- mapM (\value -> withBinding name value (eval (Compr e0 cs))) values
-            return (ListVal (concatMap (\value -> case value of (ListVal tester) -> tester) mappedValues))
+          (ListVal []) -> do
+            return (ListVal [])
+          (ListVal l) -> do
+            mappedValues <- mapM (\value -> withBinding name value (eval (Compr e0 cs))) l
+            return (ListVal (concatMap (\case
+              (ListVal tester) -> tester
+              _ -> []) mappedValues))
           _ -> abort (EBadArg "Expression not a list")
+      (CCIf e1) -> do
+        checkVal <- eval e1
+        if truthy checkVal then
+           eval (Compr e0 cs)
+        else
+          return (ListVal [])
 
 exec :: Program -> Comp ()
-exec = undefined
+exec [] = return ()
+exec (statement:statements) = case statement of
+  (SDef name exp) -> do
+    val <- eval exp
+    withBinding name val (exec statements)
+  (SExp exp) -> eval exp >> exec statements
 
 execute :: Program -> ([String], Maybe RunError)
-execute = undefined
+execute p = case runComp (exec p) [] of
+  (Right (), s) -> (s, Nothing)
+  (Left err, s) -> (s, Just err)
+  
