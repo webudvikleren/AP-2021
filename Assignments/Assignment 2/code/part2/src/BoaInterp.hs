@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
--- Skeleton file for Boa Interpreter. Edit only definitions with 'undefined'
+-- Skeleton file for Boa Interpreter.
+--Edit only definitions with 'undefined'
 
 module BoaInterp
   (Env, RunError(..), Comp(..),
@@ -131,6 +132,7 @@ valToString (ListVal [x]) = valToString x
 valToString (ListVal (x:xs)) = parseValue x ++ ", " ++
                                       valToString (ListVal xs)
 
+-- HELPER functions for printing
 parseValue :: Value -> String
 parseValue x = case x of
   ListVal [x] -> "[" ++ valToString x ++ "]"
@@ -196,7 +198,8 @@ eval e = case e of
           (ListVal []) -> do
             return (ListVal [])
           (ListVal l) -> do
-            mappedValues <- mapM (\value -> withBinding name value (eval (Compr e0 cs))) l
+            mappedValues <- mapM (\value -> 
+              withBinding name value (eval (Compr e0 cs))) l
             return (ListVal (concatMap (\case
               (ListVal tester) -> tester
               _ -> []) mappedValues))
