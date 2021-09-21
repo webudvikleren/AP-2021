@@ -7,6 +7,7 @@ import BoaInterp
 import Test.Tasty
 import Test.Tasty.HUnit
 import Data.Either
+import Data.Maybe (isJust)
 
 main :: IO ()
 main = defaultMain $ localOption (mkTimeout 1000000) tests
@@ -108,6 +109,12 @@ tests = testGroup "Test Suite" [
     testCase "Compr x [1,2,3,4,5]" $ runComp (eval (Compr (Var "x") [CCFor "x" (Const (ListVal [IntVal 1, IntVal 2, IntVal 3, IntVal 4, IntVal 5]))])) [] @=? (Right (ListVal [IntVal 1, IntVal 2, IntVal 3, IntVal 4, IntVal 5]), []),
     testCase "Compr x*x [1..10] if x%2" $ runComp (eval (Compr (Oper Times (Var "x") (Var "x")) [CCFor "x" (Call "range" [Const (IntVal 1), Const (IntVal 11)]), CCIf (Oper Mod (Var "x") (Const (IntVal 2)))])) [] @=? (Right (ListVal [IntVal 1, IntVal 9, IntVal 25, IntVal 49, IntVal 81]), []),
     testCase "Compr x*j [1..5] if x < 3 [1..5] if j > 3" $ runComp (eval (Compr (Oper Times (Var "x") (Var "j")) [CCFor "x" (Call "range" [Const (IntVal 1), Const (IntVal 6)]), CCIf (Oper Less (Var "x") (Const (IntVal 3))), CCFor "j" (Call "range" [Const (IntVal 1), Const (IntVal 6)]), CCIf (Oper Greater (Var "j") (Const (IntVal 3)))])) [] @=? (Right (ListVal [IntVal 4, IntVal 5, IntVal 8, IntVal 10]), []),
-    testCase "Exec x -> x" $ runComp (exec [SDef "x" (Const (IntVal 5)), SExp (Var "x")]) @=? Comp(\e -> (Comp ())]
-   ]
+    testCase "Exec SDef x -> x" $ runComp (exec [SDef "n" (Const (IntVal 5))]) [] @=? (Right (), []),
+    testCase "Exec SDef print x" $ runComp (exec [SDef "x" (Call "print" [Var "x"])]) [("x", IntVal 5)] @=? (Right (), ["5"]),
+    testCase "Exec SExp print x" $ runComp (exec [SExp (Call "print" [Var "x"])]) [("x", IntVal 5)] @=? (Right (), ["5"]),
+    testCase "Exec SDef x -> x" $ runComp (exec [SExp (Const (IntVal 5))]) [] @=? (Right (), []),
+    testCase "Execute print 5" $ execute [SExp (Call "print" [Const (IntVal 5)])] @=? (["5"], Nothing),
+    testCase "Execute foo 5" $ let (s, e) = execute [SExp (Call "foo" [Const (IntVal 5)])]
+                                   (s', e') = (s, isJust e)
+                                   in (s', e') @=? ([], True)]]
     
