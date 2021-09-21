@@ -57,6 +57,8 @@ truthy (IntVal x) = x /= 0
 truthy (StringVal s) = s /= []
 truthy (ListVal xs) = xs /= []
 
+-- Applies the operate to two values. Resulting in either the operator actually
+-- being applied or an error if the input is not correct.
 operate :: Op -> Value -> Value -> Either String Value
 operate Plus (IntVal x) (IntVal y) = Right (IntVal (x+y))
 operate Plus _ _ = Left "Cannot add non-integer values."
@@ -104,7 +106,9 @@ range start end step = if step > 0
                   else takeWhile (>end) $ iterate (subtract ((-1)*step)) start
 
 -- this is used by the range function in Boa to create lists. Either from 1, 2
--- or 3 arguments. 
+-- or 3 arguments. We use the built-in list-range functionality of haskell for
+-- the case of 1 or 2 arguments and cast it as IntVals afterwards.
+-- For the case of 3 arugments we defined the function "range" to handle it.
 makeIntValList :: [Value] -> [Value]
 makeIntValList [IntVal x] = map toIntVal [0..x-1]
 makeIntValList [IntVal x, IntVal y] = map toIntVal [x..y-1]
@@ -118,7 +122,7 @@ makeIntValList _ = undefined
 
 ---HELPER FUNCTIONS FOR PRINT
 
---- Dont know how to make this work with ListVal.
+-- converts a value to the corresponding string.
 valToString :: Value -> String
 valToString NoneVal = "None"
 valToString TrueVal = "True"
@@ -130,17 +134,19 @@ valToString (ListVal [x]) = valToString x
 valToString (ListVal (x:xs)) = parseValue x ++ ", " ++
                                       valToString (ListVal xs)
 
+-- parses an invidual value as a string using "valToString".
 parseValue :: Value -> String
 parseValue x = case x of
   ListVal y -> "[" ++ valToString (ListVal y) ++ "]"
   _ -> valToString x
 
+--- Parses a list of values to a string. It uses the function "parseValue" to
+--- parse the individual values.
 parseValues :: [Value] -> String
 parseValues [x] = parseValue x
 parseValues (x:xs) = (parseValue x) ++ " " ++  (parseValues xs)
 
---print(True,False,-3,'hello')                  
---TODO: finish print.
+
 apply :: FName -> [Value] -> Comp Value
 apply "range" xs 
       | not (all checkIntVals xs) = abort (EBadArg "Non-integer args.")
@@ -208,7 +214,7 @@ eval e = case e of
           _ -> abort (EBadArg "Expression not a list")
 
 exec :: Program -> Comp ()
-exec = undefined
+exec = undefined 
 
 execute :: Program -> ([String], Maybe RunError)
 execute = undefined
