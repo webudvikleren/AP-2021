@@ -135,6 +135,11 @@ parseValue x = case x of
   ListVal y -> "[" ++ valToString (ListVal y) ++ "]"
   _ -> valToString x
 
+parseValues :: [Value] -> String
+parseValues [x] = parseValue x
+parseValues (x:xs) = (parseValue x) ++ " " ++  (parseValues xs)
+
+--print(True,False,-3,'hello')                  
 --TODO: finish print.
 apply :: FName -> [Value] -> Comp Value
 apply "range" xs 
@@ -143,13 +148,10 @@ apply "range" xs
       | length xs == 3 && xs !! 2 == IntVal 0 = abort (EBadArg "Stepsize 0")
       | otherwise = return (ListVal (makeIntValList xs))
 
-apply "print" [] = return NoneVal
-apply "print" [x] = output (parseValue x) >> apply "print" []
-apply "print" (x:xs) = output (parseValue x ++ " ") >> apply "print" xs
+apply "print" [] = output "" >> return NoneVal
+apply "print" [x] = output (parseValue x) >> return NoneVal
+apply "print" (x:xs) = output (parseValues (x:xs)) >> return NoneVal
 apply fun _ = abort (EBadFun fun)
-
-merge :: Value -> [Value]
-merge = undefined
 
 -- Main functions of interpreter
 eval :: Exp -> Comp Value
