@@ -13,6 +13,7 @@ module WarmupReadP where
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
 import Data.Char (isSpace, isDigit)
+import Text.Parsec.Token (GenTokenParser(whiteSpace))
 
   -- may use instead of +++ for easier portability to Parsec
 
@@ -24,10 +25,10 @@ data Exp = Num Int | Negate Exp | Add Exp Exp
   deriving (Eq, Show)
 
 parseString' :: String -> Either ParseError Exp
-parseString' s = case readP_to_S expr s of
+parseString' s = case readP_to_S (do whitespace; r <- expr; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
-                _ -> Left "Ambiguous grammar :-("
+                _ -> Left "Ambiguous grammar"
 
 expr :: Parser Exp
 expr = do
@@ -40,17 +41,17 @@ expr = do
         expr' t
 
 expr' :: Exp -> Parser Exp
-expr' e = do
+expr' e1 = do
          symbol "+"
          t <- term
-         expr' (Add t e)
+         expr' (Add e1 t)
         <|>
         do
          symbol "-"
          t <- term
-         expr' (Add t (Negate e))
+         expr' (Add e1 (Negate t))
         <|>
-         return e  --- needs correction.
+         return e1
 
 term :: Parser Exp
 term = do
