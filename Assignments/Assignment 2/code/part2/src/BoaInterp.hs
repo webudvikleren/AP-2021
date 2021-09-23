@@ -119,7 +119,7 @@ makeIntValList [IntVal x, IntVal y, IntVal z] | (x >= y) && (z > 0) = []
                                                 if z > 0 then 
                                                 map toIntVal (range x (y-1) z)
                                                 else map toIntVal (range x y z)
-
+makeIntValList _ = []
 ---HELPER FUNCTIONS FOR PRINT
 
 -- converts a value to the corresponding string.
