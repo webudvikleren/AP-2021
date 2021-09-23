@@ -38,7 +38,7 @@ expr = do
        do
         symbol "-"
         t <- term
-        expr' t
+        expr' (Negate t)
 
 expr' :: Exp -> Parser Exp
 expr' e1 = do
@@ -62,7 +62,6 @@ term = do
         e <- expr
         symbol ")"
         return e
-
 
 -- Helper functions (from slides)
 whitespace :: Parser ()
