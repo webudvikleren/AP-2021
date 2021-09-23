@@ -24,8 +24,8 @@ type ParseError = String  -- not particularly informative with ReadP
 data Exp = Num Int | Negate Exp | Add Exp Exp
   deriving (Eq, Show)
 
-parseString' :: String -> Either ParseError Exp
-parseString' s = case readP_to_S (do whitespace; r <- expr; eof; return r) s of
+parseString :: String -> Either ParseError Exp
+parseString s = case readP_to_S (do whitespace; r <- expr; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
                 _ -> Left "Ambiguous grammar"
