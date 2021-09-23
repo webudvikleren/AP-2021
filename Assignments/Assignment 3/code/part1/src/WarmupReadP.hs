@@ -12,6 +12,8 @@ module WarmupReadP where
 
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
+import Data.Char (isSpace, isDigit)
+
   -- may use instead of +++ for easier portability to Parsec
 
 type Parser a = ReadP a   -- may use synomym for easier portability to Parsec
@@ -21,5 +23,56 @@ type ParseError = String  -- not particularly informative with ReadP
 data Exp = Num Int | Negate Exp | Add Exp Exp
   deriving (Eq, Show)
 
-parseString :: String -> Either ParseError Exp
-parseString = undefined
+parseString' :: String -> Either ParseError Exp
+parseString' s = case readP_to_S expr s of
+                [] -> Left "Cannot parse."
+                [(a,_)] -> Right a
+                _ -> Left "Ambiguous grammar :-("
+
+expr :: Parser Exp
+expr = do
+        t <- term
+        expr' t
+       <|>
+       do
+        symbol "-"
+        t <- term
+        expr' t
+
+expr' :: Exp -> Parser Exp
+expr' e = do
+         symbol "+"
+         t <- term
+         expr' (Add t e)
+        <|>
+        do
+         symbol "-"
+         t <- term
+         expr' (Add t (Negate e))
+        <|>
+         return e  --- needs correction.
+
+term :: Parser Exp
+term = do
+        Num <$> pNum
+       <|>
+       do
+        symbol "("
+        e <- expr
+        symbol ")"
+        return e
+
+
+-- Helper functions (from slides)
+whitespace :: Parser ()
+whitespace = do many (satisfy isSpace); return ()
+
+lexeme :: Parser a -> Parser a
+lexeme p = do a <- p; whitespace; return a
+
+symbol :: String -> Parser ()
+symbol s = lexeme $ do string s; return ()
+
+pNum :: Parser Int
+pNum = lexeme $ do ds <- many1 (satisfy isDigit); return $ read ds
+
