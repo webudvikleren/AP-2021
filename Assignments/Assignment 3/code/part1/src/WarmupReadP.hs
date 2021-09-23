@@ -8,7 +8,9 @@ module WarmupReadP where
 --   tokens may be separated by arbtrary whitespace (spaces, tabs, newlines).
 
 -- Rewritten grammar, without left-recursion:
---   <<< fill in here >>>
+-- E ::= T E' | "-" T E'
+-- E' ::= "+" T E' | "-" T E' | eps
+-- T ::= num | "(" E ")"
 
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
