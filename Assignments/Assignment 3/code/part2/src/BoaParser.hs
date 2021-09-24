@@ -2,8 +2,14 @@
 
 module BoaParser (ParseError, parseString) where
 
+import Text.ParserCombinators.ReadP
+import Control.Applicative ((<|>))
 import BoaAST
+import Data.Char (isSpace, isDigit)
+import Text.ParserCombinators.Parsec.Char (digit)
 -- add any other other imports you need
+
+type Parser a = ReadP a
 
 type ParseError = String -- you may replace this
 
@@ -52,7 +58,37 @@ lexeme p = do a <- p; whitespace; return a
 symbol :: String -> Parser ()
 symbol s = lexeme $ do string s; return ()
 
-numConst :: Parser Int
-numConst = lexeme $ do ds <- many1 (satisfy isDigit); return $ read ds
+numConst :: Parser Exp
+numConst = do
+        Num <$> pNum
+       <|>
+       do
+        symbol "-"
+        n <- pNumNoWhiteSpace
+        return (Const (IntVal -n))
 
+ident :: Parser Exp
+ident = lexeme $ do
+  cs <- many1 (satisfy identChecker);
+  return $ read ds
 
+identChecker :: Char -> Bool
+identChecker c = c elem ['_', '1', '2', '3', '4', '5', '6', '7']
+
+stringConst :: Parser Exp
+stringConst = lexeme $ do ds <- many1 (satisfy stringChecker); return $ read ds
+
+stringChecker :: Char -> Bool
+stringChecker c = not elem c ['\'', '\\', '\n']
+
+pNum :: Parser Int
+pNum = lexeme pNumNoWhiteSpace
+
+pNumNoWhiteSpace :: Parser Int
+pNumNoWhiteSpace = do
+  n <- satisfy (\number -> (number /=  0) && isDigit)
+  n1 <- many1 (satisfy isDigit)
+  return $ read (n ++ n1)
+  <|>
+  do
+    0
