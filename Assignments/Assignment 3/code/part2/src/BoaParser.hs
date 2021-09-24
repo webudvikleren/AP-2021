@@ -5,7 +5,7 @@ module BoaParser (ParseError, parseString) where
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
 import BoaAST
-import Data.Char (isSpace, isDigit)
+import Data.Char (isSpace, isDigit, isAlpha, isNumber, isAlphaNum)
 import Text.ParserCombinators.Parsec.Char (digit)
 -- add any other other imports you need
 
@@ -28,26 +28,51 @@ statements = undefined
 statement :: Parser Stmt
 statement = undefined
 
-exp :: Parser Exp
-exp = undefined
+expp :: Parser Exp
+expp = undefined
 
 oper :: Parser Exp
 oper = undefined
 
-forc :: Parser Exp
-forc = undefined
+forc :: Parser CClause
+forc = do
+      symbol "for"
+      i <- ident
+      symbol "in"
+      CCFor i <$> expp
 
-ifc :: Parser Exp
-ifc = undefined
+ifc :: Parser CClause
+ifc = do
+      symbol "if"
+      CCIf <$> expp
 
-clausez :: Parser CClause
-clausez = undefined
+clausez :: [CClause ] -> Parser [CClause]
+clausez cs = do
+        for <- forc
+        clausez (for:cs)
+       <|>
+       do
+        _if <- ifc
+        clausez (_if:cs)
+       <|>
+        return cs
 
-expz :: Parser [Exp]
-expz = undefined
+expz :: [Exp] -> Parser [Exp]
+expz es = do
+        exps
+       <|>
+        return es
 
 exps :: Parser [Exp]
-exps = undefined
+exps = do
+        n <- expp
+        return [n]
+       <|>
+       do
+        n <- expp
+        symbol ","
+        n1 <- exps
+        return (n:n1)
 
 whitespace :: Parser ()
 whitespace = do many (satisfy isSpace); return ()
@@ -58,15 +83,16 @@ lexeme p = do a <- p; whitespace; return a
 symbol :: String -> Parser ()
 symbol s = lexeme $ do string s; return ()
 
+symbolNoWhiteSpace :: String -> Parser ()
+symbolNoWhiteSpace s = do string s; return ()
+
 --- Handling of numConst
---- TODO: "- 5" still parses, perhaps because of read?
 numConst :: Parser Exp
 numConst = do
-        n <- pNum
-        return (Const (IntVal (n)))
+        Const . IntVal <$> pNum
        <|>
        do
-        symbol "-"
+        symbolNoWhiteSpace "-"
         n <- pNumNoWhiteSpace
         return (Const (IntVal (-n)))
 
@@ -75,7 +101,7 @@ pNum = lexeme pNumNoWhiteSpace
 
 pNumNoWhiteSpace :: Parser Int
 pNumNoWhiteSpace = do
-  n <- satisfy (\number -> (number /=  '0') && isDigit number)
+  n <- satisfy (\number -> number /= '0' && isDigit number)
   n1 <- many1 (satisfy isDigit)
   return $ read (n : n1)
   <|>
@@ -85,13 +111,16 @@ pNumNoWhiteSpace = do
 
 -- Handling of identifiers
 
-ident :: Parser Exp
-ident = lexeme $ do
-  cs <- many1 (satisfy identChecker);
-  return $ read cs
+reserved :: [String]
+reserved = ["None", "True", "False", "for", "if", "in", "not"]
 
-identChecker :: Char -> Bool
-identChecker c = c `elem` ['_', '1', '2', '3', '4', '5', '6', '7']
+ident :: Parser String
+ident = lexeme $ do
+  c <- satisfy isAlpha;
+  cs <- many (satisfy isAlphaNum);
+  let word = c:cs;
+  if word `notElem` reserved then return word
+  else return pfail "variable can't be a reserved word"
 
 -- Handling of stringConst
 
