@@ -5,7 +5,7 @@ module BoaParser (ParseError, parseString) where
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
 import BoaAST
-import Data.Char (isSpace, isDigit, isAlpha, isNumber, isAlphaNum)
+import Data.Char (isSpace, isDigit, isAlpha, isNumber, isAlphaNum, isPrint)
 import Text.ParserCombinators.Parsec.Char (digit)
 -- add any other other imports you need
 
@@ -14,25 +14,89 @@ type Parser a = ReadP a
 type ParseError = String -- you may replace this
 
 parseString :: String -> Either ParseError Exp
-parseString s = case readP_to_S (do whitespace; r <- numConst; eof; return r) s of
+parseString s = 
+   case readP_to_S (do whitespace; r <- stringConst; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
-                _ -> Left "Ambiguous grammar"
+                _ -> Left "ambiguous grammar."
 
 program :: Parser Program
-program = undefined
+program = stmts
 
-statements :: Parser [Stmt]
-statements = undefined
+stmts :: Parser [Stmt]
+stmts = do
+        n <- stmt
+        return [n]
+       <|>
+       do
+        n <- stmt
+        symbol ";"
+        n1 <- stmts
+        return (n:n1)
 
-statement :: Parser Stmt
-statement = undefined
+stmt :: Parser Stmt
+stmt = do
+       name <- ident
+       symbol "="
+       SDef name <$> expp
+       <|>
+       do
+       SExp <$> expp
 
+-- Disambiguated grammar
+
+-- First level of precedence with 'not'
 expp :: Parser Exp
-expp = undefined
+expp = do
+       symbol "not"
+       symbol "("
+       e <- expp'
+       symbol ")"
+       return (Not e)
+       <|>
+       do
+       expp'
 
-oper :: Parser Exp
-oper = undefined
+-- Second level of precdence with relational operators. Notice that they are
+-- non-associative.
+expp' :: Parser Exp
+expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
+        <|>
+        do {e1 <- e ; symbol "<"; Oper Less e1 <$> e}
+        <|>
+        do {e1 <- e ; symbol "<="; Not . Oper Greater e1 <$> e;}
+        <|>
+        do {e1 <- e ; symbol ">"; Oper Greater e1 <$> e}
+        <|>
+        do {e1 <- e ; symbol ">="; Not . Oper Less e1 <$> e}
+        <|>
+        do {e1 <- e ; symbol "in"; Oper In e1 <$> e}
+        <|>
+        do {e1 <- e ; symbol "not"; symbol "in"; Not . Oper In e1 <$> e}
+        <|>
+        e
+
+-- Third level of precedence where plus and minus is handled. These operators
+-- are left-associative. Grammar is split into e and e' to avoid left-recursion.
+-- TODO: e and e' are unfinished
+e :: Parser Exp
+e = do {t; e'}
+    <|>
+    do {symbol "-"; t; e'}
+
+e' :: Parser Exp
+e' = do {symbol "+"; t; e'}
+     <|>
+     do {symbol "-"; t; e'}
+
+t :: Parser Exp
+t = undefined
+
+t' :: Parser Exp
+t' = undefined
+
+f :: Parser Exp
+f = undefined
 
 forc :: Parser CClause
 forc = do
@@ -46,7 +110,7 @@ ifc = do
       symbol "if"
       CCIf <$> expp
 
-clausez :: [CClause ] -> Parser [CClause]
+clausez :: [CClause] -> Parser [CClause]
 clausez cs = do
         for <- forc
         clausez (for:cs)
@@ -74,17 +138,6 @@ exps = do
         n1 <- exps
         return (n:n1)
 
-whitespace :: Parser ()
-whitespace = do many (satisfy isSpace); return ()
-
-lexeme :: Parser a -> Parser a
-lexeme p = do a <- p; whitespace; return a
-
-symbol :: String -> Parser ()
-symbol s = lexeme $ do string s; return ()
-
-symbolNoWhiteSpace :: String -> Parser ()
-symbolNoWhiteSpace s = do string s; return ()
 
 --- Handling of numConst
 numConst :: Parser Exp
@@ -114,21 +167,52 @@ pNumNoWhiteSpace = do
 reserved :: [String]
 reserved = ["None", "True", "False", "for", "if", "in", "not"]
 
+alphaNumOr_ :: Char -> Bool
+alphaNumOr_ c = c == '_' || isAlphaNum c
+
 ident :: Parser String
 ident = lexeme $ do
-  c <- satisfy isAlpha;
-  cs <- many (satisfy isAlphaNum);
-  let word = c:cs;
+  c <- satisfy isAlpha <|> char '_'
+  cs <- many (satisfy alphaNumOr_)
+  let word = c:cs
   if word `notElem` reserved then return word
-  else return pfail "variable can't be a reserved word"
+  else return pfail "variable cannot be a reserved word"
 
 -- Handling of stringConst
 
-stringConst :: Parser Exp
-stringConst = lexeme $ do ds <- many1 (satisfy stringChecker); return $ read ds
-
+-- checks if the strings contains illegal characters and that the characters
+-- are printable.
+-- TODO: there is a lot of functionality missing here.
 stringChecker :: Char -> Bool
-stringChecker c = c `notElem` ['\'', '\\', '\n']
+stringChecker c = (c == '\n') || isPrint c
+
+stringConst :: Parser Exp
+stringConst = do
+   symbolNoWhiteSpace "'"
+   ds <- many1 (satisfy stringChecker);
+   symbolNoWhiteSpace "'"
+   return (Const (StringVal ds))
+
+test = "'fo\\o\
+         \b\na\'r'"
+
+-- Utility functions
+
+whitespace :: Parser ()
+whitespace = do many (satisfy isSpace); return ()
+
+lexeme :: Parser a -> Parser a
+lexeme p = do a <- p; whitespace; return a
+
+symbol :: String -> Parser ()
+symbol s = lexeme $ do string s; return ()
+
+-- used throughout the functionality where we do not want 'lexeme' to 
+-- interact with whitespace, e.g. within strings.
+symbolNoWhiteSpace :: String -> Parser ()
+symbolNoWhiteSpace s = do string s; return ()
+
+
 
 
 
