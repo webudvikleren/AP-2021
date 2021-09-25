@@ -7,6 +7,7 @@ import Control.Applicative ((<|>))
 import BoaAST
 import Data.Char (isSpace, isDigit, isAlpha, isNumber, isAlphaNum, isPrint)
 import Text.ParserCombinators.Parsec.Char (digit)
+import Text.Read.Lex (Lexeme(Ident))
 -- add any other other imports you need
 
 type Parser a = ReadP a
@@ -14,7 +15,7 @@ type Parser a = ReadP a
 type ParseError = String -- you may replace this
 
 parseString :: String -> Either ParseError Exp
-parseString s = 
+parseString s =
    case readP_to_S (do whitespace; r <- stringConst; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
@@ -80,11 +81,11 @@ expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
 -- are left-associative. Grammar is split into e and e' to avoid left-recursion.
 -- TODO: e and e' are unfinished
 e :: Parser Exp
-e = do 
+e = do
       _t <- t
       e' _t
     <|>
-    do 
+    do
       symbol "-"
       _t <- t
       e' _t
@@ -103,13 +104,74 @@ e' e1 = do
           return e1
 
 t :: Parser Exp
-t = undefined
+t = do
+      _f <- f
+      t' _f
+    <|>
+    do
+      symbol "-"
+      _f <- f
+      t' _f
 
-t' :: Parser Exp
-t' = undefined
+t' :: Exp -> Parser Exp
+t' t1 = do
+          symbol "*";
+          _f <- f;
+          t' (Oper Times  _f t1)
+        <|>
+        do
+          symbol "//";
+          _f <- f;
+          t' (Oper Div  _f t1)
+        <|>
+        do
+          symbol "%";
+          _f <- f;
+          t' (Oper Mod  _f t1)
+        <|>
+          return t1
 
 f :: Parser Exp
-f = undefined
+f = numConst
+    <|>
+    stringConst
+    <|>
+    do
+      symbol "None"
+      return (Const NoneVal)
+    <|>
+    do
+      symbol "False"
+      return (Const FalseVal)
+    <|>
+    do
+      symbol "True"
+      return (Const NoneVal)
+    <|>
+    do
+      Var <$> ident
+    <|>
+    --TODO: ident "(" exprz ")"
+    do
+      symbol "["
+      es <- expz []
+      symbol "]"
+      return (List es)
+    <|>
+    do
+      symbol "["
+      e1 <- expp
+      f <- forc
+      cs <- clausez []
+      symbol "]"
+      return (Compr e1 cs)
+    <|>
+    do
+      symbol "("
+      e1 <- expp
+      symbol ")"
+      return e1
+
 
 forc :: Parser CClause
 forc = do
@@ -126,11 +188,11 @@ ifc = do
 clausez :: [CClause] -> Parser [CClause]
 clausez cs = do
         for <- forc
-        clausez (for:cs)
+        clausez (cs ++ [for])
        <|>
        do
         _if <- ifc
-        clausez (_if:cs)
+        clausez (cs ++ [_if])
        <|>
         return cs
 
