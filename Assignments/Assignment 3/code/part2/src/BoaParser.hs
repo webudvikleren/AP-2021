@@ -80,14 +80,27 @@ expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
 -- are left-associative. Grammar is split into e and e' to avoid left-recursion.
 -- TODO: e and e' are unfinished
 e :: Parser Exp
-e = do {t; e'}
+e = do 
+      _t <- t
+      e' _t
     <|>
-    do {symbol "-"; t; e'}
+    do 
+      symbol "-"
+      _t <- t
+      e' _t
 
-e' :: Parser Exp
-e' = do {symbol "+"; t; e'}
-     <|>
-     do {symbol "-"; t; e'}
+e' :: Exp -> Parser Exp
+e' e1 = do
+          symbol "+";
+          _t <- t;
+          e' (Oper Plus _t e1)
+        <|>
+        do
+          symbol "+";
+          _t <- t;
+          e' (Oper Plus _t e1)
+        <|>
+          return e1
 
 t :: Parser Exp
 t = undefined
