@@ -5,7 +5,8 @@ module BoaParser (ParseError, parseString) where
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
 import BoaAST
-import Data.Char (isSpace, isDigit, isAlpha, isNumber, isAlphaNum, isPrint)
+import Data.Char (isSpace, isDigit, isAlpha, isNumber,
+                  isAlphaNum, isPrint, isPunctuation, isSymbol, isMark)
 import Text.ParserCombinators.Parsec.Char (digit)
 import Text.Read.Lex (Lexeme(Ident))
 -- add any other other imports you need
@@ -14,12 +15,12 @@ type Parser a = ReadP a
 
 type ParseError = String -- you may replace this
 
-parseString :: String -> Either ParseError Exp
+parseString :: String -> Either ParseError Program
 parseString s =
-   case readP_to_S (do whitespace; r <- stringConst; eof; return r) s of
+   case readP_to_S (do whitespace; r <- program; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
-                _ -> Left "ambiguous grammar."
+                _ -> Left "Ambiguous grammar"
 
 program :: Parser Program
 program = stmts
@@ -27,13 +28,13 @@ program = stmts
 stmts :: Parser [Stmt]
 stmts = do
         n <- stmt
-        return [n]
-       <|>
-       do
-        n <- stmt
         symbol ";"
         n1 <- stmts
         return (n:n1)
+       <|>
+        do
+        n <- stmt
+        return [n]
 
 stmt :: Parser Stmt
 stmt = do
@@ -79,14 +80,8 @@ expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
 
 -- Third level of precedence where plus and minus is handled. These operators
 -- are left-associative. Grammar is split into e and e' to avoid left-recursion.
--- TODO: e and e' are unfinished
 e :: Parser Exp
 e = do
-      _t <- t
-      e' _t
-    <|>
-    do
-      symbol "-"
       _t <- t
       e' _t
 
@@ -94,22 +89,18 @@ e' :: Exp -> Parser Exp
 e' e1 = do
           symbol "+";
           _t <- t;
-          e' (Oper Plus _t e1)
+          e' (Oper Plus e1 _t)
         <|>
         do
-          symbol "+";
+          symbol "-";
           _t <- t;
-          e' (Oper Plus _t e1)
+          e' (Oper Minus e1 _t)
         <|>
           return e1
 
+-- Fourth level of precedence, here mul, div and mod is handled.
 t :: Parser Exp
 t = do
-      _f <- f
-      t' _f
-    <|>
-    do
-      symbol "-"
       _f <- f
       t' _f
 
@@ -146,12 +137,18 @@ f = numConst
     <|>
     do
       symbol "True"
-      return (Const NoneVal)
+      return (Const TrueVal)
     <|>
     do
       Var <$> ident
     <|>
-    --TODO: ident "(" exprz ")"
+    do
+      i <- ident
+      symbol "("
+      e <- expz []
+      symbol ")"
+      return (Call i e)
+    <|>
     do
       symbol "["
       es <- expz []
@@ -162,7 +159,7 @@ f = numConst
       symbol "["
       e1 <- expp
       f <- forc
-      cs <- clausez []
+      cs <- clausez [f]
       symbol "]"
       return (Compr e1 cs)
     <|>
@@ -203,15 +200,15 @@ expz es = do
         return es
 
 exps :: Parser [Exp]
-exps = do
-        n <- expp
-        return [n]
-       <|>
-       do
+exps =  do
         n <- expp
         symbol ","
         n1 <- exps
         return (n:n1)
+        <|>
+        do
+        n <- expp
+        return [n]
 
 
 --- Handling of numConst
@@ -238,7 +235,6 @@ pNumNoWhiteSpace = do
   return $ read [n]
 
 -- Handling of identifiers
-
 reserved :: [String]
 reserved = ["None", "True", "False", "for", "if", "in", "not"]
 
@@ -256,7 +252,7 @@ ident = lexeme $ do
 -- Handling of stringConst
 
 -- checks if the strings contains illegal characters and that the characters
--- are printable.
+-- are printable. illegal chars are ' and \, unless escaped, i.e. \i and \\
 -- TODO: there is a lot of functionality missing here.
 stringChecker :: Char -> Bool
 stringChecker c = (c == '\n') || isPrint c
@@ -271,7 +267,18 @@ stringConst = do
 test = "'fo\\o\
          \b\na\'r'"
 
+
 -- Utility functions
+-- Added function for checking if something is a comment and then ignoring it.
+-- Where should it be used?
+comment :: Char -> Bool
+comment c = isAlphaNum c || isPunctuation c || isSymbol c || isMark c
+
+comments :: Parser ()
+comments = do
+           symbol "#"
+           many (satisfy comment)
+           return ()
 
 whitespace :: Parser ()
 whitespace = do many (satisfy isSpace); return ()
