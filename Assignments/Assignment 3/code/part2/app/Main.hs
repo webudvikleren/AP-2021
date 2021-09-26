@@ -10,10 +10,6 @@ import BoaParser (parseString)
 import System.Exit (die)
 import System.Environment (getArgs)
 
-main :: IO()
-main = print "hello"
-
-{-
 run :: Program -> IO ()
 run p =
   do let (out, res) = execute p
@@ -43,4 +39,3 @@ main = do args <- getArgs
                     \  boa -i PROGRAM.ast    (interpret only)\n\
                     \  boa -p PROGRAM.boa    (parse only)\n\
                     \  boa PROGRAM.boa       (parse & interpret)"
--}

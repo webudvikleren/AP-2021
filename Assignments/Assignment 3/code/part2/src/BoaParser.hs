@@ -64,6 +64,8 @@ expp = do
 expp' :: Parser Exp
 expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
         <|>
+        do {e1 <- e ; symbol "!="; Not . Oper Eq e1 <$> e}
+        <|>
         do {e1 <- e ; symbol "<"; Oper Less e1 <$> e}
         <|>
         do {e1 <- e ; symbol "<="; Not . Oper Greater e1 <$> e;}
