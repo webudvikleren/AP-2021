@@ -81,7 +81,69 @@ tests = testGroup "\nTest suite" [
                               
                               in x' @=? True,
        testCase "1<(2<3)" $ parseString "1<(2<3)" @=?
-                            Right [SExp (Oper Less (Const (IntVal 1))
-                            (Oper Less (Const (IntVal 2)) (Const (IntVal 3))))]  
-  ]
+                          Right [SExp (Oper Less (Const (IntVal 1))
+                          (Oper Less (Const (IntVal 2)) (Const (IntVal 3))))]],
+  testGroup "Arithmetic operators" [
+       testCase "1+" $ let x = parseString "1+"
+                           x' = isLeft x
+                           in x' @=? True,
+       testCase "+1" $ let x = parseString "+1"
+                           x' = isLeft x
+                           in x' @=? True,
+       testCase "1+1" $ parseString "1+1" @=? 
+                Right [SExp (Oper Plus (Const (IntVal 1)) (Const (IntVal 1)))],
+       testCase "-1+1" $ parseString "-1+1" @=? 
+             Right [SExp (Oper Plus (Const (IntVal (-1))) (Const (IntVal 1)))],
+       testCase "1-1" $  parseString "1-1" @=? 
+               Right [SExp (Oper Minus (Const (IntVal 1)) (Const (IntVal 1)))],
+       testCase "1*1" $  parseString "1*1" @=? 
+               Right [SExp (Oper Times (Const (IntVal 1)) (Const (IntVal 1)))],
+       testCase "1//1" $  parseString "1//1" @=? 
+                 Right [SExp (Oper Div (Const (IntVal 1)) (Const (IntVal 1)))],
+       testCase "1%1" $  parseString "1%1" @=? 
+                 Right [SExp (Oper Mod (Const (IntVal 1)) (Const (IntVal 1)))]],
+  testGroup "Terminals" [
+       testCase "None" $ parseString "None" @=? Right [SExp (Const NoneVal)],
+       testCase "False" $ parseString "False" @=? Right [SExp (Const FalseVal)],
+       testCase "True" $ parseString "True" @=? Right [SExp (Const TrueVal)],
+       testCase "Foo = 5" $ parseString "Foo = 5" @=?
+                                        Right [SDef "Foo" (Const (IntVal 5))],
+       testCase "range(1,2)" $ parseString "range (1,2)" @=?
+       Right [SExp (Call "range" [Const (IntVal 1), Const (IntVal 2)])],
+       testCase "[1,2]" $ parseString "[1,2]" @=? 
+                       Right [SExp (List [Const (IntVal 1), Const (IntVal 2)])],
+       testCase "[1,2" $ let x = parseString "[1,2"
+                             x' = isLeft x
+                             in x' @=? True,
+       testCase "[x for x in range(1,2)]" $ parseString "[x for x in range(1,2)]" @=?
+       Right [SExp (Compr (Var "x") [CCFor "x" (Call "range" [Const (IntVal 1),
+                                                          Const (IntVal 2)])])],
+       testCase "[x for x in [] if x > 0]" $ parseString "[x for x in [] if x > 0]" @=?
+       Right [SExp (Compr (Var "x") [CCFor "x" (List []),CCIf (Oper Greater (Var "x")
+                                                         (Const (IntVal 0)))])],
+       testCase "[if x > 0]" $ let x = parseString "[if x > 0]"
+                                   x' = isLeft x
+                                   in x' @=? True,
+       testCase "(1+1)" $ parseString "(1+1)" @=? 
+           Right [SExp (Oper Plus (Const (IntVal 1)) (Const (IntVal 1)))]],
+  testGroup "Expressions" [
+       testCase "not (1+1)" $ parseString "not (1+1)" @=?
+         Right [SExp (Not (Oper Plus (Const (IntVal 1)) (Const (IntVal 1))))],
+       testCase "not (1+1" $ let x = parseString "not (1+1"
+                                 x' = isLeft x
+                                 in x' @=? True,
+       testCase "None + True" $ parseString "None + True" @=?
+         Right [SExp (Oper Plus (Const NoneVal) (Const TrueVal))]
+  ],
+  testGroup "Statements/Program" [
+       testCase "AP = 12" $ parseString "AP = 12" @=? 
+           Right [SDef "AP" (Const (IntVal 12))],
+       testCase "42" $ parseString "42" @=?
+           Right [SExp (Const (IntVal 42))],
+       testCase "AP = 12; 42" $ parseString "AP = 12; 42" @=?
+           Right [SDef "AP" (Const (IntVal 12)), SExp (Const (IntVal 42))],
+       testCase "Empty program" $ let x = parseString ""
+                                      x' = isLeft x
+                                      in x' @=? True]
+  
       ]
