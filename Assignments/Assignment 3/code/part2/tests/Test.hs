@@ -33,30 +33,37 @@ tests = testGroup "\nTest suite" [
         testCase "True = 5" $ let x = parseString "True = 5"
                                   x' = isLeft x
                                   in x' @=? True],
-  testGroup "stringConst tests" [ -- TODO: make more string tests, when it works.
+  testGroup "stringConst tests" [ 
         testCase "AP" $ parseString "'AP'" @=? 
                         Right [SExp (Const (StringVal "AP"))],
-        testCase "AP newline" $ parseString "'AP\n'" @=?
+        testCase "AP newline" $ parseString "'AP\\n'" @=?
                                 Right [SExp (Const (StringVal "AP\n"))],
         testCase "AP'" $ let x = parseString "'AP''"
                              x' = isLeft x
                              in x' @=? True,
-        testCase "AP backslash" $ let x = parseString "'AP\'"
-                                      x' = isLeft x
-                                      in x' @=? True,
-        testCase "AP 2xbackslash" $ parseString "'AP\\'" @=?
-                                    Right [SExp (Const (StringVal "AP\\"))],
-        testCase "'fo\\o\
-                 \b\na\'r'" $ parseString "'fo\\o\
-                  \b\na\'r'" @=? Right [SExp (Const (StringVal "fo\\ob\na'r"))]
-        ],
+        testCase "AP backslash'" $ let x = parseString "'AP\''"
+                                       x' = isLeft x
+                                       in x' @=? True,
+        testCase "'fo\\no'"  $ parseString "'fo\\no'" @=?
+                                   Right [SExp (Const (StringVal "fo\no"))],
+        testCase "'\\n '" $ parseString "'\\n '" @=?
+                            Right [SExp (Const (StringVal "\n "))],
+        testCase "'\\ '" $ let x = parseString "'\\ '"
+                               x' = isLeft x
+                               in x' @=? True,
+        testCase " 'AP' " $ parseString " 'AP' " @=?
+                           Right [SExp (Const (StringVal "AP"))]],
   testGroup "#comments" [
         testCase "foo = 5 #bar" $ parseString "foo = 5 #bar" @=?
                                   Right [SDef "foo" (Const (IntVal 5))],
         testCase "'AP#AAD'" $ parseString "'AP#AAD'" @=? 
                               Right [SExp (Const (StringVal "AP#AAD"))],
-        testCase "5;#foo5" $ parseString "5;#foo5" @=?
-                      Right [SExp (Const (IntVal 5)),SExp (Const (IntVal 5))]],
+        testCase "#NL1 #aNL" $ parseString "#\n1 #a\n" @=?
+                              Right [SExp (Const (IntVal 1))],
+        testCase "#NL5 #NL#NL" $ parseString "#\n5 #\n#\n" @=?
+                              Right [SExp (Const (IntVal 5))],
+        testCase "#NL5;#NL6#NL" $ parseString "#\n5;#\n6#\n" @=?
+            Right [SExp (Const (IntVal 5)),SExp (Const (IntVal 6))]],
   testGroup "Relational operators" [
        testCase "1==1" $ parseString "1==1" @=?
                   Right [SExp (Oper Eq (Const (IntVal 1)) (Const (IntVal 1)))],
