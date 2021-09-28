@@ -257,12 +257,12 @@ ident = lexeme $ do
 -- are printable. illegal chars are ' and \, unless escaped, i.e. \i and \\
 -- TODO: there is a lot of functionality missing here.
 stringChecker :: Char -> Bool
-stringChecker c = (c == '\n') || isPrint c
+stringChecker c = (c /= '\'') && (elem c ['\n', '\\', '\''] || isPrint c)
 
 stringConst :: Parser Exp
 stringConst = do
    symbolNoWhiteSpace "'"
-   ds <- many1 (satisfy stringChecker);
+   ds <- many (satisfy stringChecker)
    symbolNoWhiteSpace "'"
    return (Const (StringVal ds))
 
