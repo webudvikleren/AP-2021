@@ -5,8 +5,8 @@ module BoaParser (ParseError, parseString) where
 import Text.ParserCombinators.ReadP
 import Control.Applicative ((<|>))
 import BoaAST
-import Data.Char (isSpace, isDigit, isAlpha, isNumber,
-                  isAlphaNum, isPrint, isPunctuation, isSymbol, isMark)
+import Data.Char (isSpace, isDigit, isAlpha, isAlphaNum, isPrint)
+import Data.List
 -- add any other other imports you need
 
 type Parser a = ReadP a
@@ -49,11 +49,8 @@ stmt = do
 -- needs to work with "not 5", now only works with "not (5)"
 expp :: Parser Exp
 expp = do
-       symbol "not"
-       symbol "("
-       e <- expp'
-       symbol ")"
-       return (Not e)
+       keyword "not"
+       Not <$> expp
        <|>
        do
        expp'
@@ -73,9 +70,9 @@ expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
         <|>
         do {e1 <- e ; symbol ">="; Not . Oper Less e1 <$> e}
         <|>
-        do {e1 <- e ; symbol "in"; Oper In e1 <$> e}
+        do {e1 <- e ; satisfy isSpace ; keyword "in"; Oper In e1 <$> e}
         <|>
-        do {e1 <- e ; symbol "not"; symbol "in"; Not . Oper In e1 <$> e}
+        do {e1 <- e ; keyword "not"; keyword "in"; Not . Oper In e1 <$> e}
         <|>
         e
 
@@ -109,17 +106,17 @@ t' :: Exp -> Parser Exp
 t' t1 = do
           symbol "*";
           _f <- f;
-          t' (Oper Times  _f t1)
+          t' (Oper Times t1 _f)
         <|>
         do
           symbol "//";
           _f <- f;
-          t' (Oper Div  _f t1)
+          t' (Oper Div t1 _f)
         <|>
         do
           symbol "%";
           _f <- f;
-          t' (Oper Mod  _f t1)
+          t' (Oper Mod t1 _f)
         <|>
           return t1
 
@@ -155,10 +152,11 @@ f = numConst
       es <- expz []
       symbol "]"
       return (List es)
-    <|>
+    <++
     do
       symbol "["
       e1 <- expp
+      satisfy isSpace;
       f <- forc
       cs <- clausez [f]
       symbol "]"
@@ -173,14 +171,18 @@ f = numConst
 
 forc :: Parser CClause
 forc = do
-      symbolNoWhiteSpace "for"
+      symbol "for"
+      satisfy isSpace;
       i <- ident
-      symbolNoWhiteSpace "in"
+      satisfy isSpace;
+      symbol "in"
+      satisfy isSpace;
       CCFor i <$> expp
 
 ifc :: Parser CClause
 ifc = do
-      symbolNoWhiteSpace  "if"
+      symbol  "if"
+      satisfy isSpace;
       CCIf <$> expp
 
 clausez :: [CClause] -> Parser [CClause]
@@ -242,9 +244,12 @@ reserved = ["None", "True", "False", "for", "if", "in", "not"]
 alphaNumOr_ :: Char -> Bool
 alphaNumOr_ c = c == '_' || isAlphaNum c
 
+alphaOr_ :: Char -> Bool
+alphaOr_ c = c == '_' || isAlpha c
+
 ident :: Parser String
 ident = lexeme $ do
-  c <- satisfy isAlpha <|> char '_'
+  c <- satisfy alphaOr_
   cs <- many (satisfy alphaNumOr_)
   let word = c:cs
   if word `notElem` reserved then return word
@@ -256,30 +261,50 @@ ident = lexeme $ do
 -- are printable. illegal chars are ' and \, unless escaped, i.e. \i and \\
 -- TODO: there is a lot of functionality missing here.
 stringChecker :: Char -> Bool
-stringChecker c = (c /= '\'') && (elem c ['\n', '\\', '\''] || isPrint c)
+stringChecker c = (c /= '\'') && (c /= '\\') && isPrint c
+
+stringSatisfyer :: Parser String
+stringSatisfyer = do
+  c <- get
+  if stringChecker c then do
+    return [c]
+  else
+    if c == '\\' then do
+      c1 <- get
+      case c1 of
+        '\\' -> return [c1]
+        '\'' -> return [c1]
+        'n' -> return ['\n']
+        '\n' -> return ""
+        _ -> pfail
+    else
+      pfail
 
 stringConst :: Parser Exp
 stringConst = do
-   symbolNoWhiteSpace "'"
-   ds <- many (satisfy stringChecker)
-   symbolNoWhiteSpace "'"
-   return (Const (StringVal ds))
-
-test = "'fo\\o\
-         \b\na\'r'"
+   char '\''
+   ds <- many stringSatisfyer
+   symbol "'"
+   return (Const (StringVal (intercalate "" ds)))
 
 -- Utility functions
 -- Added function for checking if something is a comment and then ignoring it.
-comment :: Char -> Bool
-comment c = isAlphaNum c || isPunctuation c || isSymbol c || isMark c || isSpace c
-
 comments :: Parser ()
 comments = do
-           symbolNoWhiteSpace "#"
-           many (satisfy comment)
+           many comment
            return ()
-           <|>  
+
+comment :: Parser ()
+comment = do
+           string "#"
+           many (satisfy (/= '\n'))
+           char '\n'
            return ()
+          <|>
+          do
+           string "#"
+           many (satisfy (/= '\n'))
+           eof
 
 whitespace :: Parser ()
 whitespace = do many (satisfy isSpace); return ()
@@ -287,8 +312,17 @@ whitespace = do many (satisfy isSpace); return ()
 lexeme :: Parser a -> Parser a
 lexeme p = do a <- p; whitespace; comments; return a
 
+
 symbol :: String -> Parser ()
 symbol s = lexeme $ do string s; return ()
+
+keyword :: String -> Parser ()
+keyword s = lexeme $ do
+  string s
+  (c:_) <- look;
+  if isAlphaNum c then
+    pfail
+  else return ()
 
 -- used throughout the functionality where we do not want 'lexeme' to 
 -- interact with whitespace, e.g. within strings.
