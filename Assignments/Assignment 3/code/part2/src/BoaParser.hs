@@ -53,28 +53,30 @@ expp = do
        Not <$> expp
        <|>
        do
-       expp'
+         e1 <- e
+         expp' e1
 
 -- Second level of precdence with relational operators. Notice that they are
 -- non-associative.
-expp' :: Parser Exp
-expp' = do {e1 <- e ; symbol "=="; Oper Eq e1 <$> e}
+expp' :: Exp -> Parser Exp
+expp' e1 = do {symbol "=="; Oper Eq e1 <$> e}
         <|>
-        do {e1 <- e ; symbol "!="; Not . Oper Eq e1 <$> e}
+        do {symbol "!="; Not . Oper Eq e1 <$> e}
         <|>
-        do {e1 <- e ; symbol "<"; Oper Less e1 <$> e}
+        do {symbol "<"; Oper Less e1 <$> e}
         <|>
-        do {e1 <- e ; symbol "<="; Not . Oper Greater e1 <$> e;}
+        do {symbol "<="; Not . Oper Greater e1 <$> e;}
         <|>
-        do {e1 <- e ; symbol ">"; Oper Greater e1 <$> e}
+        do {symbol ">"; Oper Greater e1 <$> e}
         <|>
-        do {e1 <- e ; symbol ">="; Not . Oper Less e1 <$> e}
+        do {symbol ">="; Not . Oper Less e1 <$> e}
         <|>
-        do {e1 <- e ; satisfy isSpace ; keyword "in"; Oper In e1 <$> e}
+        do {satisfy isSpace ; keyword "in"; Oper In e1 <$> e}
         <|>
-        do {e1 <- e ; keyword "not"; keyword "in"; Not . Oper In e1 <$> e}
+        do {keyword "not"; keyword "in"; Not . Oper In e1 <$> e}
         <|>
-        e
+        do
+          return e1
 
 -- Third level of precedence where plus and minus is handled. These operators
 -- are left-associative. Grammar is split into e and e' to avoid left-recursion.
@@ -121,9 +123,10 @@ t' t1 = do
           return t1
 
 f :: Parser Exp
-f = numConst
+f = do
+    Var <$> ident
     <|>
-    stringConst
+    numConst
     <|>
     do
       symbol "None"
@@ -138,51 +141,56 @@ f = numConst
       return (Const TrueVal)
     <|>
     do
-      Var <$> ident
-    <|>
-    do
-      i <- ident
       symbol "("
-      e <- expz []
+      e1 <- expp
       symbol ")"
-      return (Call i e)
+      return e1
     <|>
     do
       symbol "["
-      es <- expz []
+      es <- expz
       symbol "]"
       return (List es)
-    <++
+    <|>
     do
       symbol "["
+      char '('
       e1 <- expp
-      satisfy isSpace;
+      char ')'
       f <- forc
       cs <- clausez [f]
       symbol "]"
       return (Compr e1 cs)
     <|>
     do
-      symbol "("
+      symbol "["
       e1 <- expp
+      satisfy isSpace
+      f <- forc
+      cs <- clausez [f]
+      symbol "]"
+      return (Compr e1 cs)
+    <|>
+      stringConst
+    <|>
+    do
+      i <- ident
+      symbol "("
+      e <- expz
       symbol ")"
-      return e1
+      return (Call i e)
 
 
 forc :: Parser CClause
 forc = do
-      symbol "for"
-      satisfy isSpace;
+      keyword "for"
       i <- ident
-      satisfy isSpace;
-      symbol "in"
-      satisfy isSpace;
+      keyword "in"
       CCFor i <$> expp
 
 ifc :: Parser CClause
 ifc = do
-      symbol  "if"
-      satisfy isSpace;
+      keyword "if"
       CCIf <$> expp
 
 clausez :: [CClause] -> Parser [CClause]
@@ -196,22 +204,22 @@ clausez cs = do
        <|>
         return cs
 
-expz :: [Exp] -> Parser [Exp]
-expz es = do
-        exps
-       <|>
-        return es
-
-exps :: Parser [Exp]
-exps =  do
+expz :: Parser [Exp]
+expz = do
         n <- expp
+        exps n
+        <|>
+        return []
+
+exps :: Exp -> Parser [Exp]
+exps e = do
         symbol ","
-        n1 <- exps
-        return (n:n1)
+        n1 <- expp
+        n2 <- exps n1
+        return (e:n2)
         <|>
         do
-        n <- expp
-        return [n]
+          return [e]
 
 
 --- Handling of numConst
@@ -253,7 +261,7 @@ ident = lexeme $ do
   cs <- many (satisfy alphaNumOr_)
   let word = c:cs
   if word `notElem` reserved then return word
-  else return pfail "variable cannot be a reserved word"
+  else pfail
 
 -- Handling of stringConst
 
