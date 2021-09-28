@@ -1,5 +1,3 @@
--- Skeleton file for Boa Parser.
-
 module BoaParser (ParseError, parseString) where
 
 import Text.ParserCombinators.ReadP
@@ -7,18 +5,17 @@ import Control.Applicative ((<|>))
 import BoaAST
 import Data.Char (isSpace, isDigit, isAlpha, isAlphaNum, isPrint)
 import Data.List
--- add any other other imports you need
 
 type Parser a = ReadP a
 
-type ParseError = String -- you may replace this
+type ParseError = String
 
 parseString :: String -> Either ParseError Program
 parseString s =
    case readP_to_S (do whitespace; comments; r <- program; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
-                _ -> Left "Ambiguous grammar"
+                _ -> error "Ambiguous grammar"
 
 program :: Parser Program
 program = stmts
@@ -43,10 +40,9 @@ stmt = do
        do
        SExp <$> expp
 
--- Disambiguated grammar
+-- Disambiguated grammar (only expressions and operators has been changed)
 
 -- First level of precedence with 'not'
--- needs to work with "not 5", now only works with "not (5)"
 expp :: Parser Exp
 expp = do
        keyword "not"
@@ -57,7 +53,7 @@ expp = do
          expp' e1
 
 -- Second level of precdence with relational operators. Notice that they are
--- non-associative.
+-- non-associative and therefore the function is not recursive.
 expp' :: Exp -> Parser Exp
 expp' e1 = do {symbol "=="; Oper Eq e1 <$> e}
         <|>
@@ -122,6 +118,8 @@ t' t1 = do
         <|>
           return t1
 
+-- Note that <++ is used to bias the parser towards the left choice, speeding
+-- things up.
 f :: Parser Exp
 f = do
       Var <$> ident
@@ -235,6 +233,7 @@ numConst = do
 pNum :: Parser Int
 pNum = lexeme pNumNoWhiteSpace
 
+-- pNumWhiteSpace is used to handle "- 4" which is not allowed.
 pNumNoWhiteSpace :: Parser Int
 pNumNoWhiteSpace = do
   n <- satisfy (\number -> number /= '0' && isDigit number)
@@ -267,7 +266,6 @@ ident = lexeme $ do
 
 -- checks if the strings contains illegal characters and that the characters
 -- are printable. illegal chars are ' and \, unless escaped, i.e. \i and \\
--- TODO: there is a lot of functionality missing here.
 stringChecker :: Char -> Bool
 stringChecker c = (c /= '\'') && (c /= '\\') && isPrint c
 
