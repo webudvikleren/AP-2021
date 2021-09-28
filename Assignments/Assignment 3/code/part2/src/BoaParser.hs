@@ -124,9 +124,11 @@ t' t1 = do
 
 f :: Parser Exp
 f = do
-    Var <$> ident
+      Var <$> ident
     <|>
-    numConst
+      numConst
+    <|>
+      stringConst
     <|>
     do
       symbol "None"
@@ -151,7 +153,7 @@ f = do
       es <- expz
       symbol "]"
       return (List es)
-    <|>
+    <++
     do
       symbol "["
       char '('
@@ -161,7 +163,7 @@ f = do
       cs <- clausez [f]
       symbol "]"
       return (Compr e1 cs)
-    <|>
+    <++
     do
       symbol "["
       e1 <- expp
@@ -170,9 +172,7 @@ f = do
       cs <- clausez [f]
       symbol "]"
       return (Compr e1 cs)
-    <|>
-      stringConst
-    <|>
+    <++
     do
       i <- ident
       symbol "("
@@ -238,7 +238,7 @@ pNum = lexeme pNumNoWhiteSpace
 pNumNoWhiteSpace :: Parser Int
 pNumNoWhiteSpace = do
   n <- satisfy (\number -> number /= '0' && isDigit number)
-  n1 <- many1 (satisfy isDigit)
+  n1 <- munch1 isDigit
   return $ read (n : n1)
   <|>
   do
@@ -258,7 +258,7 @@ alphaOr_ c = c == '_' || isAlpha c
 ident :: Parser String
 ident = lexeme $ do
   c <- satisfy alphaOr_
-  cs <- many (satisfy alphaNumOr_)
+  cs <- munch alphaNumOr_
   let word = c:cs
   if word `notElem` reserved then return word
   else pfail
@@ -305,13 +305,13 @@ comments = do
 comment :: Parser ()
 comment = do
            string "#"
-           many (satisfy (/= '\n'))
+           munch (/= '\n')
            char '\n'
            return ()
           <|>
           do
            string "#"
-           many (satisfy (/= '\n'))
+           munch (/= '\n')
            eof
 
 whitespace :: Parser ()
