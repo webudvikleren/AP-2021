@@ -7,8 +7,6 @@ import Control.Applicative ((<|>))
 import BoaAST
 import Data.Char (isSpace, isDigit, isAlpha, isNumber,
                   isAlphaNum, isPrint, isPunctuation, isSymbol, isMark)
-import Text.ParserCombinators.Parsec.Char (digit)
-import Text.Read.Lex (Lexeme(Ident))
 -- add any other other imports you need
 
 type Parser a = ReadP a
@@ -17,7 +15,7 @@ type ParseError = String -- you may replace this
 
 parseString :: String -> Either ParseError Program
 parseString s =
-   case readP_to_S (do whitespace; r <- program; eof; return r) s of
+   case readP_to_S (do whitespace; comments; r <- program; eof; return r) s of
                 [] -> Left "Cannot parse."
                 [(a,_)] -> Right a
                 _ -> Left "Ambiguous grammar"
@@ -48,6 +46,7 @@ stmt = do
 -- Disambiguated grammar
 
 -- First level of precedence with 'not'
+-- needs to work with "not 5", now only works with "not (5)"
 expp :: Parser Exp
 expp = do
        symbol "not"
@@ -174,14 +173,14 @@ f = numConst
 
 forc :: Parser CClause
 forc = do
-      symbol "for"
+      symbolNoWhiteSpace "for"
       i <- ident
-      symbol "in"
+      symbolNoWhiteSpace "in"
       CCFor i <$> expp
 
 ifc :: Parser CClause
 ifc = do
-      symbol "if"
+      symbolNoWhiteSpace  "if"
       CCIf <$> expp
 
 clausez :: [CClause] -> Parser [CClause]
@@ -269,24 +268,24 @@ stringConst = do
 test = "'fo\\o\
          \b\na\'r'"
 
-
 -- Utility functions
 -- Added function for checking if something is a comment and then ignoring it.
--- Where should it be used?
 comment :: Char -> Bool
-comment c = isAlphaNum c || isPunctuation c || isSymbol c || isMark c
+comment c = isAlphaNum c || isPunctuation c || isSymbol c || isMark c || isSpace c
 
 comments :: Parser ()
 comments = do
-           symbol "#"
+           symbolNoWhiteSpace "#"
            many (satisfy comment)
+           return ()
+           <|>  
            return ()
 
 whitespace :: Parser ()
 whitespace = do many (satisfy isSpace); return ()
 
 lexeme :: Parser a -> Parser a
-lexeme p = do a <- p; whitespace; return a
+lexeme p = do a <- p; whitespace; comments; return a
 
 symbol :: String -> Parser ()
 symbol s = lexeme $ do string s; return ()
