@@ -4,10 +4,13 @@
 
 new(Fun, Arg) -> spawn(fun() -> 
     Me = self(),
-    process_flag(trap_exit, true),
-    spawn_link(fun() ->
-      Res = Fun(Arg),
-      Me ! {comp_done, Res}
+    spawn(fun() ->
+      try
+        Res = Fun(Arg),
+        Me ! {comp_done, Res}
+      catch
+        _:Reason -> Me ! {comp_error, Reason}
+      end
     end),
     loop({true, false, nothing})
   end
@@ -34,18 +37,12 @@ poll(Aid) ->
       end
   end.
 
-loop({Working, Success, Res} = State) ->
+loop(State) ->
   receive
     {comp_done, _Res} -> 
-      io:format("Hej verden"),
       loop({false, true, _Res});
-    {'EXIT', Worker, Reason} ->
-      io:format(Reason),
-      if
-        Reason /= "normal" ->
-          loop({false, false, Reason}),
-          io:format("Fejl")
-      end;
+    {comp_error, _Res} ->
+      loop({false, false, _Res});
     {From, get_state} ->
       From ! State,
       loop(State)
