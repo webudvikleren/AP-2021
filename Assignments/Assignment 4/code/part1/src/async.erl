@@ -14,7 +14,7 @@ new(Fun, Arg) -> spawn(fun() ->
         _:Reason -> Me ! {comp_error, Reason}
       end
     end),
-    loop({true, false, nothing})
+    loop({working, noSucces, nothing})
   end
 ).
 
@@ -22,26 +22,26 @@ new(Fun, Arg) -> spawn(fun() ->
 wait(Aid) -> 
   Aid ! {self(), get_state},
   receive
-    {false, false, Reason} -> throw(Reason);
-    {false, true, Res} -> Res;
-    {true,_,_} -> wait(Aid)
+    {notWorking, noSucces, Reason} -> throw(Reason);
+    {notWorking, succes, Res} -> Res;
+    {working,_,_} -> wait(Aid)
   end.
 
 %% asks for current state and immediately returns.
 poll(Aid) ->
   Aid ! {self(), get_state},
   receive
-    {true, _, _} -> nothing;
-    {false, true, Res} -> {ok, Res};
-    {false, false, Ex} -> {exception, Ex}
+    {working, _, _} -> nothing;
+    {notWorking, succes, Res} -> {ok, Res};
+    {notWorking, noSucces, Ex} -> {exception, Ex}
   end.
 
 loop(State) ->
   receive
     {comp_done, _Res} -> 
-      loop({false, true, _Res});
-    {comp_error, _Res} ->
-      loop({false, false, _Res});
+      loop({notWorking, succes, _Res});
+    {comp_error, Ex} ->
+      loop({notWorking, noSucces, Ex});
     {From, get_state} ->
       From ! State,
       loop(State)
