@@ -33,7 +33,7 @@ poll(Aid) ->
   receive
     {true, _, _} -> nothing;
     {false, true, Res} -> {ok, Res};
-    {false, false, Reason} -> {exception, Reason}
+    {false, false, Ex} -> {exception, Ex}
   end.
 
 loop(State) ->
