@@ -2,6 +2,8 @@
 
 -export([new/2, wait/1, poll/1]).
 
+%% Spawns a supervisor and a worker process. The worker process handles the
+%% function evaluation. The supervisor calls the loop.
 new(Fun, Arg) -> spawn(fun() -> 
     Me = self(),
     spawn(fun() ->
@@ -16,25 +18,22 @@ new(Fun, Arg) -> spawn(fun() ->
   end
 ).
 
+%% asks for current state and waits untill process is finished.
 wait(Aid) -> 
   Aid ! {self(), get_state},
   receive
-    {Working, _, _} ->
-      if
-        Working -> wait(Aid);
-        true -> ok
-      end
+    {false, false, Reason} -> throw(Reason);
+    {false, true, Res} -> Res;
+    {true,_,_} -> wait(Aid)
   end.
 
+%% asks for current state and immediately returns.
 poll(Aid) ->
   Aid ! {self(), get_state},
   receive
-    {Working, Success, Res} ->
-      if
-        Working -> nothing;
-        Success -> {ok, Res};
-        true -> {exception, Res}
-      end
+    {true, _, _} -> nothing;
+    {false, true, Res} -> {ok, Res};
+    {false, false, Reason} -> {exception, Reason}
   end.
 
 loop(State) ->
