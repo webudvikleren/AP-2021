@@ -22,9 +22,8 @@ new(Fun, Arg) -> spawn(fun() ->
 wait(Aid) -> 
   Aid ! {self(), get_state},
   receive
-    {notWorking, noSucces, Reason} -> throw(Reason);
-    {notWorking, succes, Res} -> Res;
-    {working,_,_} -> wait(Aid)
+    {working,_,_} -> wait(Aid);
+    {notWorking, _, _} -> poll(Aid)
   end.
 
 %% asks for current state and immediately returns.
