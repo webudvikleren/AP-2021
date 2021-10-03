@@ -21,7 +21,7 @@ start(Initial) ->
   end.
 
 %% add new non-existing short codes.
--spec new_shortcode(string(), string(), binary()) -> any().
+-spec new_shortcode(pid(), _, _) -> any().
 new_shortcode(E, Short, Emo) -> 
   Me = self(),
   send_request(E, {register, Me, Short, Emo}),
@@ -30,7 +30,7 @@ new_shortcode(E, Short, Emo) ->
   end.
 
 %% Add an alias for a short code.
--spec alias(string(), string(), string()) -> any().
+-spec alias(pid(),_, _) -> any().
 alias(E, Short1, Short2) -> 
   Me = self(),
   send_request(E, {alias, Me, Short1, Short2}),
@@ -39,11 +39,12 @@ alias(E, Short1, Short2) ->
   end.
 
 %% Delete a short code.
--spec delete(string(), string()) -> any().
+-spec delete(atom() | pid() | port() | reference() | {atom(), atom()}, _) ->
+  {'delete', _}.
 delete(E, Short) -> E ! {delete, Short}.
 
 %% Look up a short code. Subsequently runs all the attached analytics functions.
--spec lookup(string(), string()) -> any().
+-spec lookup(pid(), _) -> any().
 lookup(E, Short) ->
   Me = self(),
   send_request(E, {lookup, Me, Short}),
@@ -52,7 +53,7 @@ lookup(E, Short) ->
   end.
 
 %% Add an analytics functions to a short code.
-- spec analytics(string(), shortcode(), analytic_fun(any()), string(), any()) -> any().
+- spec analytics(pid(), _, _, _, _) -> any().
 analytics(E, Short, Fun, Label, Init) ->
   send_request(E, {register_analytics, self(), Short, Fun, Label, Init}),
   receive
@@ -60,7 +61,7 @@ analytics(E, Short, Fun, Label, Init) ->
   end.
 
 %% Get the results of the analytics functions of a given short code.
--spec get_analytics(string(), shortcode()) -> any().
+-spec get_analytics(pid(), _) -> any().
 get_analytics(E,Short) ->
   send_request(E, {get_analytics, self(), Short}),
   receive
@@ -68,7 +69,13 @@ get_analytics(E,Short) ->
   end.
 
 %% Remove an analytics functions from a short code.
--spec remove_analytics(string(), shortcode(), string()) -> any().
+-spec remove_analytics(pid(), _, _) ->
+  {'get_analytics', pid(), _} |
+  {'lookup', pid(), _} |
+  {'remove_analytics', _, _} |
+  {'alias', pid(), _, _} |
+  {'register', pid(), _, _} |
+  {'register_analytics', pid(), _, _, _, _}.
 remove_analytics(E, Short, Label) ->
   send_request(E, {remove_analytics, Short, Label}).
 
