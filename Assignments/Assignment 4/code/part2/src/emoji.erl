@@ -11,9 +11,11 @@
 -spec start([{string(), binary()}]) -> any().
 start(Initial) ->
   case length(Initial) == sets:size(sets:from_list(Initial)) of
-    true -> spawn(fun() ->
-      loop({dict:from_list(Initial), dict:new()})  
-    end);
+    true -> 
+      Pid = spawn(fun() ->
+        loop({dict:from_list(Initial), dict:new()}) 
+      end),
+      {ok, Pid};
     false -> {error, "Initial elements contains duplicates"}
   end.
 

@@ -23,7 +23,8 @@ wait(Aid) ->
   Aid ! {self(), get_state},
   receive
     {working,_,_} -> wait(Aid);
-    {notWorking, _, _} -> poll(Aid)
+    {notWorking, succes, Res} -> Res;
+    {notWorking, noSucces, Res} -> throw(Res)
   end.
 
 %% asks for current state and immediately returns.
