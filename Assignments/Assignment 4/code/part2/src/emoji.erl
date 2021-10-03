@@ -22,7 +22,7 @@ start(Initial) ->
 -spec new_shortcode(string(), string(), binary()) -> any().
 new_shortcode(E, Short, Emo) -> 
   Me = self(),
-  E ! {register, Me, Short, Emo},
+  send_request(E, {register, Me, Short, Emo}),
   receive
     RetVal -> RetVal
   end.
@@ -30,7 +30,7 @@ new_shortcode(E, Short, Emo) ->
 -spec alias(string(), string(), string()) -> any().
 alias(E, Short1, Short2) -> 
   Me = self(),
-  E ! {alias, Me, Short1, Short2},
+  send_request(E, {alias, Me, Short1, Short2}),
   receive
     RetVal -> RetVal
   end.
@@ -41,7 +41,7 @@ delete(E, Short) -> E ! {delete, Short}.
 -spec lookup(string(), string()) -> any().
 lookup(E, Short) ->
   Me = self(),
-  E ! {lookup, Me, Short},
+  send_request(E, {lookup, Me, Short}),
   receive
     RetVal -> RetVal
   end.
@@ -52,7 +52,9 @@ get_analytics(_, _) -> not_implemented.
 
 remove_analytics(_, _, _) -> not_implemented.
 
-stop(_) -> not_implemented.
+stop(E) -> 
+  exit(E, ok),
+  ok.
 
 loop({Shortcodes, Alias} = State) ->
 receive
@@ -134,6 +136,12 @@ dict_search_for_val(Short, Dict) ->
   Concatted = lists:concat(Mapped),
   Filtered = lists:filter(fun(Elm) -> Elm /= false end, Concatted),
   length(Filtered) /= 0.
+
+send_request(Pid, Message) ->
+  case is_process_alive(Pid) of
+    true -> Pid ! Message;
+    false -> throw("Process not alive")
+  end.
 
 
 
