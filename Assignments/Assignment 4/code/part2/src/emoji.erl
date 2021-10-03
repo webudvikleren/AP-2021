@@ -2,12 +2,13 @@
 
 -export([start/1, new_shortcode/3, alias/3, delete/2, lookup/2,
          analytics/5, get_analytics/2, remove_analytics/3,
-         stop/1, dict_search/2]).
+         stop/1]).
 
 -type shortcode() :: string().
 -type emoji() :: binary().
 -type analytic_fun(State) :: fun((shortcode(), State) -> State).
 
+%% checks the initial list for duplicates and starts up the emoji server.
 -spec start([{string(), binary()}]) -> any().
 start(Initial) ->
   case length(Initial) == sets:size(sets:from_list(Initial)) of
@@ -19,6 +20,7 @@ start(Initial) ->
     false -> {error, "Initial elements contains duplicates"}
   end.
 
+%% add new non-existing short codes.
 -spec new_shortcode(string(), string(), binary()) -> any().
 new_shortcode(E, Short, Emo) -> 
   Me = self(),
@@ -27,6 +29,7 @@ new_shortcode(E, Short, Emo) ->
     RetVal -> RetVal
   end.
 
+%% Add an alias for a short code.
 -spec alias(string(), string(), string()) -> any().
 alias(E, Short1, Short2) -> 
   Me = self(),
@@ -35,9 +38,11 @@ alias(E, Short1, Short2) ->
     RetVal -> RetVal
   end.
 
+%% Delete a short code.
 -spec delete(string(), string()) -> any().
 delete(E, Short) -> E ! {delete, Short}.
 
+%% Look up a short code. Subsequently runs all the attached analytics functions.
 -spec lookup(string(), string()) -> any().
 lookup(E, Short) ->
   Me = self(),
@@ -46,6 +51,7 @@ lookup(E, Short) ->
     RetVal -> RetVal
   end.
 
+%% Add an analytics functions to a short code.
 - spec analytics(string(), shortcode(), analytic_fun(any()), string(), any()) -> any().
 analytics(E, Short, Fun, Label, Init) ->
   send_request(E, {register_analytics, self(), Short, Fun, Label, Init}),
@@ -53,6 +59,7 @@ analytics(E, Short, Fun, Label, Init) ->
     RetVal -> RetVal
   end.
 
+%% Get the results of the analytics functions of a given short code.
 -spec get_analytics(string(), shortcode()) -> any().
 get_analytics(E,Short) ->
   send_request(E, {get_analytics, self(), Short}),
@@ -60,14 +67,18 @@ get_analytics(E,Short) ->
     RetVal -> RetVal
   end.
 
+%% Remove an analytics functions from a short code.
 -spec remove_analytics(string(), shortcode(), string()) -> any().
 remove_analytics(E, Short, Label) ->
   send_request(E, {remove_analytics, Short, Label}).
 
+%% Stop the emoji server. Calling the server after this results in a runtime 
+%% error.
 stop(E) -> 
   exit(E, ok),
   ok.
 
+%% Main server loop. Needs to be refactored if time allows it.
 loop({Shortcodes, Alias, Analytics} = State) ->
 receive
   {register, From, Short, Emo} ->
@@ -168,7 +179,8 @@ run_analytics(Short, Dict) ->
                end
              end, dict:to_list(Dict))).
 
-
+%% This function is used to the delete the aliases of a short code which
+%% deletion has been requested. 
 dict_delete(Short, Dict) -> 
   case dict:is_key(Short, Dict) of 
     true ->
@@ -180,7 +192,11 @@ dict_delete(Short, Dict) ->
       end,Keys));
     false -> Dict
   end.
-  
+
+%% Find the "root" of an alias, i.e. the original short code. This is used to
+%% save a lot of space when saving e.g. analytics functions. Everything is
+%% just stored at the "root" short code, potentially avoiding a lot of
+%% duplication.
 dict_search(Short, Dict) -> 
   Keys = dict:fetch_keys(Dict),
   Mapped = lists:map(fun(Key) ->
@@ -199,6 +215,9 @@ dict_search(Short, Dict) ->
     true -> lists:nth(1, Filtered)
   end.
 
+%% Because we use dictionaries to store aliases, e.g. [{"alien", "alien1"}],
+%% we can have situations where the value of the {key, value} pair is also
+%% a key. This functions findes the values so that they can be treates as keys.
 dict_search_for_val(Short, Dict) -> 
   Keys = dict:fetch_keys(Dict),
   Mapped = lists:map(fun(Key) ->
@@ -214,6 +233,7 @@ dict_search_for_val(Short, Dict) ->
   Filtered = lists:filter(fun(Elm) -> Elm /= false end, Concatted),
   length(Filtered) /= 0.
 
+%% used to send request to the server. 
 send_request(Pid, Message) ->
   case is_process_alive(Pid) of
     true -> Pid ! Message;
