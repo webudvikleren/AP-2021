@@ -91,11 +91,13 @@ end.
 dict_delete(Short, Dict) -> 
   case dict:is_key(Short, Dict) of 
     true ->
-      Values = dict:fetch(Short, Dict),
-      Dict1 = lists:foldr(fun(S, Acc) -> dict_delete(S, Acc) end, Dict, Values),
-      io:format("~p", [Short]),
-      dict:erase(Short, Dict1);
-    false -> dict:erase(Short, Dict)
+      Keys = lists:filter(fun(Key) -> Key /= Short end,dict:fetch_keys(Dict)),
+      dict:from_list(lists:map(fun(Key) ->
+        Values = dict:fetch(Key, Dict),
+        FilteredValues = lists:filter(fun(Value) -> Value /= Short end,Values),
+        {Key, FilteredValues}
+      end,Keys));
+    false -> Dict
   end.
   
 dict_search(Short, Dict) -> 
@@ -140,5 +142,7 @@ dict_search_for_val(Short, Dict) ->
 
 % Alias:
 %Short 1 -> [Short 2]
-%Short 2 -> [Short 3, SHort 4]
-%Short 3 -> [Short 5]
+%Short 2 -> [Short 3]
+%Short 2' -> [Short 3]
+%Short 3 -> [Short 4]
+%Short 4 -> [Short 5]
