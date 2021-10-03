@@ -99,15 +99,15 @@ receive
   {lookup, From, Short} ->
     case dict:is_key(Short, Shortcodes) of
       true -> 
-        Emo = dict:fetch(Short, Shortcodes),
-        From ! {ok, Emo},
+        [Head | _] = dict:fetch(Short, Shortcodes),
+        From ! {ok, Head},
         loop({Shortcodes, Alias, run_analytics(Short, Analytics)});
       false -> case dict_search(Short, Alias) of
         Short1 ->
           case dict:is_key(Short1, Shortcodes) of
             true -> 
-              Emo = dict:fetch(Short1, Shortcodes),
-              From ! {ok, Emo},
+              [Head | _] = dict:fetch(Short1, Shortcodes),
+              From ! {ok, Head},
               loop({Shortcodes, Alias, run_analytics(Short1, Analytics)});
             false -> From ! no_emoji,
                     loop(State)
