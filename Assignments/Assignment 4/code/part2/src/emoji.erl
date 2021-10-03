@@ -153,6 +153,7 @@ receive
        loop({Shortcodes, Alias, delete_analytics(Short, Label, Analytics)})
    end.
 
+%% Delete analytics functions from a short code and all its' aliases.
 delete_analytics(Short, RemoveLabel, Dict) ->
   ChildShort = dict_search(Short, Dict),
   dict:from_list(lists:map(fun({Key, Value}) -> 
@@ -166,6 +167,8 @@ delete_analytics(Short, RemoveLabel, Dict) ->
            end
          end, dict:to_list(Dict))).
 
+%% Used by lookup to run the analytics functions (if any exists) attached to
+%% the short code.
 run_analytics(Short, Dict) ->
       ChildShort = dict_search(Short, Dict),
       dict:from_list(lists:map(fun({Key, Value}) -> 
