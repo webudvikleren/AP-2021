@@ -11,7 +11,8 @@
 %% checks the initial list for duplicates and starts up the emoji server.
 -spec start([{string(), binary()}]) -> any().
 start(Initial) ->
-  case length(Initial) == sets:size(sets:from_list(Initial)) of
+  Shortcodes = lists:map(fun({Shortcode, _}) -> Shortcode end, Initial),
+  case length(Shortcodes) == sets:size(sets:from_list(Shortcodes)) of
     true -> 
       Pid = spawn(fun() ->
         loop({dict:from_list(Initial), dict:new(),  dict:new()}) 
@@ -59,7 +60,7 @@ send_request(E, {self(), Ref, {delete, Short}}).
 lookup(E, Short) ->
   Me = self(),
   Ref = make_ref(),
-  send_request(E, {Me, Ref, {lookup, Short}}),
+  send_request(E, {worker, Me, Ref, {lookup, Short}}),
   receive
     {Ref,RetVal} -> RetVal
   end.
@@ -121,6 +122,10 @@ handle_request(Request, State) ->
 loop(State) ->
 receive
      {From, Ref, Request} ->
+      {Res, NewState} = handle_request(Request, State),
+      From ! {Ref, Res},
+      loop(NewState);
+     {worker, From, Ref, Request} ->
       Me = self(),
       Worker = spawn(fun() ->
         try
@@ -132,9 +137,9 @@ receive
         end
       end),
       NewState = receive 
-                {Worker, New} -> New;
-                {error, Reason} -> From ! {Ref, {error, Reason}}, State
-                end,
+        {Worker, New} -> New;
+        {error, Reason} -> From ! {Ref, {error, Reason}}, State
+        end,
    loop(NewState)
    end.
 
@@ -148,13 +153,19 @@ reg_aux(Short, Emo, State={Shortcodes, Alias, Analytics}) ->
 
 %%TODO: We do not check if the alias already exists.
 alias_aux(Short1, Short2, State={Shortcodes, Alias, Analytics}) ->
-    case dict:is_key(Short1, Shortcodes) of
-      true -> {ok, {Shortcodes, dict:append(Short1, Short2, Alias), Analytics}};
-      false -> case dict_search_for_val(Short1, Alias) of
-                true -> {ok, {Shortcodes, dict:append(Short1, Short2, Alias), Analytics}};
-                false -> {{error, "Short1 not registered"}, State}
-               end
-     end.
+  AliasExists = dict:is_key(Short2, Alias),
+  if
+    Short1 == Short2 -> {{error, "Cant be alias for self"}, State};
+    AliasExists -> {{error, "Cant be alias for chain to self"}, State};
+    true -> 
+      case dict:is_key(Short1, Shortcodes) of
+        true -> {ok, {Shortcodes, dict:append(Short1, Short2, Alias), Analytics}};
+        false -> case dict_search_for_val(Short1, Alias) of
+            true -> {ok, {Shortcodes, dict:append(Short1, Short2, Alias), Analytics}};
+            false -> {{error, "Short1 not registered"}, State}
+          end
+        end
+  end.
 
 %% This might need a check that the key exists before trying to delete?
 delete_aux(Short, {Shortcodes, Alias, Analytics}) ->
@@ -232,11 +243,18 @@ run_analytics(Short, Alias, Analytics) ->
   dict:from_list(lists:map(fun({Key, Value}) -> 
     case Key == ChildShort of
       true -> {Key, dict:from_list(lists:map(fun({Label, {G, State}}) ->
-              {Label, {G, G(Short, State)}}
+              {Label, {G, run_analytics_function(G, Short, State)}}
               end, dict:to_list(Value)))};
       false -> {Key, Value}
     end
   end, dict:to_list(Analytics))).
+
+run_analytics_function(G, Short, State) ->
+  try
+    G(Short, State)
+  catch
+    _ -> State
+  end.
 
 %% This function is used to the delete the aliases of a short code which
 %% deletion has been requested. 
