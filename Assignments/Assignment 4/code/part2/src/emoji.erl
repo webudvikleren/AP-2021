@@ -120,20 +120,20 @@ handle_request(Request, State) ->
 loop(State) ->
 receive
      {From, Ref, Request} ->
-       Me = self(),
-       Worker = spawn(fun() ->
-           try
-             {Res, NewState} = handle_request(Request, State),
-             From ! {Ref, Res},
-             Me ! {self(), NewState}
-           catch
-             _:Reason -> Me ! {error, Reason}
-           end
-         end),
-         NewState = receive 
-                    {Worker, New} -> New;
-                    {error, Reason} -> From ! {Ref, {error, Reason}}, State
-                    end,
+      Me = self(),
+      Worker = spawn(fun() ->
+        try
+          {Res, NewState} = handle_request(Request, State),
+          From ! {Ref, Res},
+          Me ! {self(), NewState}
+        catch
+          _:Reason -> Me ! {error, Reason}
+        end
+      end),
+      NewState = receive 
+                {Worker, New} -> New;
+                {error, Reason} -> From ! {Ref, {error, Reason}}, State
+                end,
    loop(NewState)
    end.
 
@@ -157,20 +157,23 @@ alias_aux(Short1, Short2, State={Shortcodes, Alias, Analytics}) ->
 
 %% This might need a check that the key exists before trying to delete?
 delete_aux(Short, {Shortcodes, Alias, Analytics}) ->
-  {ok, {dict:erase(Short, Shortcodes), dict_delete(Short, Alias), Analytics}}.
-
+  {ok, {dict:erase(dict_search(Short, Alias), Shortcodes), dict_delete(Short, Alias), Analytics}}.
 
 lookup_aux(Short, State={Shortcodes, Alias, Analytics}) ->
   case dict:is_key(Short, Shortcodes) of
-    true -> 
-      [Head | _] = dict:fetch(Short, Shortcodes),
-      {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Analytics)}};
+    true ->
+      case dict:fetch(Short, Shortcodes) of
+        [Head | _] -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Analytics)}};
+        Head -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Analytics)}}
+      end;
     false -> case dict_search(Short, Alias) of
       Short1 ->
         case dict:is_key(Short1, Shortcodes) of
           true -> 
-            [Head | _] = dict:fetch(Short1, Shortcodes),
-            {{ok, Head}, {Shortcodes, Alias, run_analytics(Short1, Analytics)}};
+            case dict:fetch(Short1, Shortcodes) of
+              [Head | _] -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short1, Analytics)}};
+              Head -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short1, Analytics)}}
+            end;
           false -> {no_emoji, State}
         end
     end
@@ -234,53 +237,54 @@ delete_analytics(Short, RemoveLabel, Dict) ->
 %% Used by lookup to run the analytics functions (if any exists) attached to
 %% the short code.
 run_analytics(Short, Dict) ->
-      ChildShort = dict_search(Short, Dict),
-      dict:from_list(lists:map(fun({Key, Value}) -> 
-               case Key == ChildShort of
-                 true -> Fun_dict = lists:nth(1,dict:fetch(ChildShort, Dict)),
-                         Fun_labels = dict:to_list(Fun_dict),
-                         {Key, [dict:from_list(lists:map(fun({Label, [{G, State}]}) ->
-                         {Label, [{G, G(ChildShort, State)}]}
-                         end , Fun_labels))]};
-                 false -> {Key, Value}
-               end
-             end, dict:to_list(Dict))).
+  ChildShort = dict_search(Short, Dict),
+  dict:from_list(lists:map(fun({Key, Value}) -> 
+            case Key == ChildShort of
+              true -> Fun_dict = lists:nth(1,dict:fetch(ChildShort, Dict)),
+                      Fun_labels = dict:to_list(Fun_dict),
+                      {Key, [dict:from_list(lists:map(fun({Label, [{G, State}]}) ->
+                      {Label, [{G, G(ChildShort, State)}]}
+                      end , Fun_labels))]};
+              false -> {Key, Value}
+            end
+          end, dict:to_list(Dict))).
 
 %% This function is used to the delete the aliases of a short code which
 %% deletion has been requested. 
 dict_delete(Short, Dict) -> 
-  case dict:is_key(Short, Dict) of 
-    true ->
-      Keys = lists:filter(fun(Key) -> Key /= Short end,dict:fetch_keys(Dict)),
-      dict:from_list(lists:map(fun(Key) ->
-        Values = dict:fetch(Key, Dict),
-        FilteredValues = lists:filter(fun(Value) -> Value /= Short end,Values),
-        {Key, FilteredValues}
-      end,Keys));
-    false -> Dict
-  end.
+  lists:foldl(
+    fun(_Short, Acc) ->
+      dict:erase(_Short, dict:from_list(lists:map(fun({Key, Values}) ->
+        {Key, lists:filter(fun(Value) -> Value /= _Short end, Values)}
+      end, dict:to_list(Acc))))
+    end,
+    Dict,
+    find_alias_list(Dict, Short)
+  ).
 
 %% Find the "root" of an alias, i.e. the original short code. This is used to
 %% save a lot of space when saving e.g. analytics functions. Everything is
 %% just stored at the "root" short code, potentially avoiding a lot of
 %% duplication.
 dict_search(Short, Dict) -> 
-  Keys = dict:fetch_keys(Dict),
-  Mapped = lists:map(fun(Key) ->
-    Values = dict:fetch(Key, Dict),
-    lists:map(fun(Value) -> 
-      if
-        Short == Value -> dict_search(Key, Dict);
-        true -> false
-      end
-    end, Values)
-  end, Keys),
-  Concatted = lists:concat(Mapped),
-  Filtered = lists:filter(fun(Elm) -> Elm /= false end, Concatted),
-  if
-    length(Filtered) == 0 -> Short;
-    true -> lists:nth(1, Filtered)
+  KeysWithShortAsAlias = lists:map(
+    fun({Key, _}) -> Key end,
+    lists:filter(
+      fun({_, Value}) -> lists:member(Short, Value) end,
+      dict:to_list(Dict)
+    )
+  ),
+  case length(KeysWithShortAsAlias) of
+    0 -> Short;
+    _ -> dict_search(lists:nth(1, KeysWithShortAsAlias), Dict)
   end.
+
+find_alias_list(Dict, Short) ->
+  ChildShort = dict_search(Short, Dict),
+  lists:filter(fun(Value) -> dict_search(Value, Dict) == ChildShort end,
+    sets:to_list(sets:from_list(
+    lists:concat(lists:map(fun({_, Value}) -> Value end, dict:to_list(Dict)))
+  ))) ++ [ChildShort].
 
 %% Because we use dictionaries to store aliases, e.g. [{"alien", "alien1"}],
 %% we can have situations where the value of the {key, value} pair is also
