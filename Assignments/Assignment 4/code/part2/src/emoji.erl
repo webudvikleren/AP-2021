@@ -9,7 +9,7 @@
 -type analytic_fun(State) :: fun((shortcode(), State) -> State).
 
 %% checks the initial list for duplicates and starts up the emoji server.
--spec start([{string(), binary()}]) -> any().
+-spec start([{string(), emoji()}]) -> any().
 start(Initial) ->
   Shortcodes = lists:map(fun({Shortcode, _}) -> Shortcode end, Initial),
   case length(Shortcodes) == sets:size(sets:from_list(Shortcodes)) of
@@ -66,7 +66,7 @@ lookup(E, Short) ->
   end.
 
 %% Add an analytics functions to a short code.
-- spec analytics(pid(), _, _, _, _) -> any().
+- spec analytics(pid(), string(), analytic_fun(_), string(), _) -> any().
 analytics(E, Short, Fun, Label, Init) ->
   Ref = make_ref(),
   send_request(E, {self(), Ref, {register_analytics, Short, Fun, Label, Init}}),
