@@ -161,40 +161,33 @@ delete_aux(Short, {Shortcodes, Alias, Analytics}) ->
   {ok, {dict:erase(dict_search(Short, Alias), Shortcodes), dict_delete(Short, Alias), Analytics}}.
 
 lookup_aux(Short, State={Shortcodes, Alias, Analytics}) ->
-  case dict:is_key(Short, Shortcodes) of
-    true ->
-      case dict:fetch(Short, Shortcodes) of
-        [Head | _] -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Analytics)}};
-        Head -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Analytics)}}
-      end;
-    false -> case dict_search(Short, Alias) of
-      Short1 ->
-        case dict:is_key(Short1, Shortcodes) of
-          true -> 
-            case dict:fetch(Short1, Shortcodes) of
-              [Head | _] -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short1, Analytics)}};
-              Head -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short1, Analytics)}}
-            end;
-          false -> {no_emoji, State}
-        end
-    end
+  case dict_search(Short, Alias) of
+    Short1 ->
+      case dict:is_key(Short1, Shortcodes) of
+        true -> 
+          case dict:fetch(Short1, Shortcodes) of
+            [Head | _] -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Alias, Analytics)}};
+            Head -> {{ok, Head}, {Shortcodes, Alias, run_analytics(Short, Alias, Analytics)}}
+          end;
+        false -> {no_emoji, State}
+      end
   end.
 
 reg_analytics_aux(Short, Fun, Label, Init, State={Shortcodes, Alias, Analytics}) ->
-    case dict:is_key(Short, Shortcodes) or dict:is_key(Short, Alias) or
-         dict_search_for_val(Short, Alias) of
+    case dict:is_key(Short, Shortcodes) or dict:is_key(Short, Alias) or dict_search_for_val(Short, Alias) of
         true ->
          ChildShort = dict_search(Short, Alias),
          case dict:is_key(ChildShort, Analytics) of
            true -> Values = lists:nth(1, dict:fetch(ChildShort, Analytics)),
-                   case dict:is_key(Label, Values) of
-                     true -> {{error, "label already exits."}, State};
-                     false -> InnerValues = dict:append(Label, {Fun, Init}, Values),
-                              Erase = dict:erase(ChildShort, Analytics),
-                              {ok, {Shortcodes, Alias, dict:append(ChildShort, InnerValues, Erase)}}
-                   end;
-           false -> Values = dict:new(),
-           {ok, {Shortcodes, Alias, dict:append(ChildShort, dict:append(Label, {Fun, Init}, Values), Analytics)}}
+              case dict:is_key(Label, Values) of
+                true -> {{error, "label already exits."}, State};
+                false -> InnerValues = dict:append(Label, {Fun, Init}, Values),
+                  Erase = dict:erase(ChildShort, Analytics),
+                  {ok, {Shortcodes, Alias, dict:append(ChildShort, InnerValues, Erase)}}
+              end;
+           false -> 
+              Values = dict:new(),
+              {ok, {Shortcodes, Alias, dict:append(ChildShort, dict:append(Label, {Fun, Init}, Values), Analytics)}}
          end;
         false -> {{error, "shortcode does not exist."}, State}
     end.
@@ -230,24 +223,24 @@ delete_analytics(Short, RemoveLabel, Dict) ->
   dict:from_list(lists:map(fun({Key, [Functions]}) -> 
     case Key == ChildShort of
       true -> {Key, [dict:erase(RemoveLabel, Functions)]};
-      false -> {Key, Functions}
+      false -> {Key, [Functions]}
     end
   end, dict:to_list(Dict))).
 
 %% Used by lookup to run the analytics functions (if any exists) attached to
 %% the short code.
-run_analytics(Short, Dict) ->
-  ChildShort = dict_search(Short, Dict),
+run_analytics(Short, Alias, Analytics) ->
+  ChildShort = dict_search(Short, Alias),
   dict:from_list(lists:map(fun({Key, Value}) -> 
-            case Key == ChildShort of
-              true -> Fun_dict = lists:nth(1,dict:fetch(ChildShort, Dict)),
-                      Fun_labels = dict:to_list(Fun_dict),
-                      {Key, [dict:from_list(lists:map(fun({Label, [{G, State}]}) ->
-                      {Label, [{G, G(ChildShort, State)}]}
-                      end , Fun_labels))]};
-              false -> {Key, Value}
-            end
-          end, dict:to_list(Dict))).
+    case Key == ChildShort of
+      true -> Fun_dict = lists:nth(1,dict:fetch(ChildShort, Analytics)),
+              Fun_labels = dict:to_list(Fun_dict),
+              {Key, [dict:from_list(lists:map(fun({Label, [{G, State}]}) ->
+              {Label, [{G, G(Short, State)}]}
+              end , Fun_labels))]};
+      false -> {Key, Value}
+    end
+  end, dict:to_list(Analytics))).
 
 %% This function is used to the delete the aliases of a short code which
 %% deletion has been requested. 
