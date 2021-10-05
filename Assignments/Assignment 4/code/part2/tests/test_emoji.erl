@@ -81,7 +81,7 @@ test_lookup_smiley() ->
     {"Register new shortcode and look it up",
     fun () ->
       {ok, S} = emoji:start([]),
-      {ok} = emoji:new_shortcode(S, "smiley", <<240,159,152,131>>),
+      ok = emoji:new_shortcode(S, "smiley", <<240,159,152,131>>),
       ?assertEqual({ok,<<240,159,152,131>>}, emoji:lookup(S, "smiley"))
     end }.
 
@@ -96,9 +96,9 @@ test_lookup_more() ->
     {"Register three shortcodes and look them up",
     fun () ->
       {ok, S} = emoji:start([]),
-      {ok} = emoji:new_shortcode(S, "smiley", <<240,159,152,131>>),
-      {ok} = emoji:new_shortcode(S, "accept", <<240,159,137,145>>),
-      {ok} = emoji:new_shortcode(S, "100", <<240,159,146,175>>),
+      ok = emoji:new_shortcode(S, "smiley", <<240,159,152,131>>),
+      ok = emoji:new_shortcode(S, "accept", <<240,159,137,145>>),
+      ok = emoji:new_shortcode(S, "100", <<240,159,146,175>>),
       ?assertEqual({ok,<<240,159,152,131>>}, emoji:lookup(S, "smiley")),
       ?assertEqual({ok,<<240,159,137,145>>}, emoji:lookup(S, "accept")),
       ?assertEqual({ok,<<240,159,146,175>>}, emoji:lookup(S, "100"))

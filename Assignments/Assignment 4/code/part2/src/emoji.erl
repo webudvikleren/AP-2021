@@ -184,6 +184,7 @@ lookup_aux(Short, State={Shortcodes, Alias, Analytics}) ->
       end
   end.
 
+% Sub function for registering analytics functions in state structure
 reg_analytics_aux(Short, Fun, Label, Init, State={Shortcodes, Alias, Analytics}) ->
     case dict:is_key(Short, Shortcodes) or dict:is_key(Short, Alias) or dict_search_for_val(Short, Alias) of
         true ->
@@ -202,6 +203,7 @@ reg_analytics_aux(Short, Fun, Label, Init, State={Shortcodes, Alias, Analytics})
         false -> {{error, "shortcode does not exist."}, State}
     end.
 
+% Sub function for getting analytics state for given short
 get_analytics_aux(Short, State={Shortcodes, Alias, Analytics}) ->
   case dict:is_key(Short, Shortcodes) or dict:is_key(Short, Alias) or
   dict_search_for_val(Short, Alias) of
@@ -249,6 +251,7 @@ run_analytics(Short, Alias, Analytics) ->
     end
   end, dict:to_list(Analytics))).
 
+%Trying to run the analytics function or returning the initial state
 run_analytics_function(G, Short, State) ->
   try
     G(Short, State)
@@ -286,6 +289,7 @@ dict_search(Short, Dict) ->
     _ -> dict_search(lists:nth(1, KeysWithShortAsAlias), Dict)
   end.
 
+%% Returns chain of aliases from top to root, given any of the Short in the chain
 find_alias_list(Dict, Short) ->
   ChildShort = dict_search(Short, Dict),
   lists:filter(fun(Value) -> dict_search(Value, Dict) == ChildShort end,
