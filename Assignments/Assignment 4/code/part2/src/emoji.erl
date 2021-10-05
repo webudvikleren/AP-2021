@@ -2,7 +2,7 @@
 
 -export([start/1, new_shortcode/3, alias/3, delete/2, lookup/2,
          analytics/5, get_analytics/2, remove_analytics/3,
-         stop/1]).
+         stop/1, dict_delete/2]).
 
 -type shortcode() :: string().
 -type emoji() :: binary().
@@ -94,7 +94,8 @@ get_analytics(E,Short) ->
    {'register', _, _} |
    {'register_analytics', _, _, _, _}}.
 remove_analytics(E, Short, Label) ->
-  send_request(E, {self(), {remove_analytics, Short, Label}}).
+  Ref = make_ref(),
+  send_request(E, {self(), Ref, {remove_analytics, Short, Label}}).
 
 %% Stop the emoji server. Calling the server after this results in a runtime 
 %% error.
@@ -112,7 +113,7 @@ handle_request(Request, State) ->
     {register_analytics, Short, Fun, Label, Init} ->
                               reg_analytics_aux(Short, Fun, Label, Init, State);
     {get_analytics, Short} -> get_analytics_aux(Short, State);
-    {remove_analytics, Short, Label} -> remove_anaytics_aux(Short, Label, State)
+    {remove_analytics, Short, Label} -> remove_analytics_aux(Short, Label, State)
   end.
 
 
@@ -201,20 +202,23 @@ reg_analytics_aux(Short, Fun, Label, Init, State={Shortcodes, Alias, Analytics})
 get_analytics_aux(Short, State={Shortcodes, Alias, Analytics}) ->
   case dict:is_key(Short, Shortcodes) or dict:is_key(Short, Alias) or
   dict_search_for_val(Short, Alias) of
-             true -> ChildShort = dict_search(Short, Alias),
-                  case dict:is_key(ChildShort, Analytics) of
-                     true -> Fun_dict = lists:nth(1,dict:fetch(Short, Analytics)),
-                             Fun_labels = dict:to_list(Fun_dict),
-                             {{ok, lists:map(fun({Label, [{_, AnalyticsState}]}) ->
-                              {Label, AnalyticsState}
-                             end , Fun_labels)}, State};
-                     false -> {{error, "no analytics registered."}, State}
-                  end;
-             false -> {{error, "shortcode does not exist."}, State}
+    true -> ChildShort = dict_search(Short, Alias),
+      case dict:is_key(ChildShort, Analytics) of
+        true -> 
+          Fun_dict = lists:nth(1,dict:fetch(ChildShort, Analytics)),
+          Fun_labels = dict:to_list(Fun_dict),
+          {{ok, lists:map(fun({Label, [{_, AnalyticsState}]}) ->
+          {Label, AnalyticsState}
+          end , Fun_labels)}, State};
+        false -> 
+          {{error, "no analytics registered."}, State}
+      end;
+    false -> 
+      {{error, "shortcode does not exist."}, State}
   end.
 
 %% should perhaps also check if the short code actually exists?
-remove_anaytics_aux(Short, Label, {Shortcodes, Alias, Analytics}) ->
+remove_analytics_aux(Short, Label, {Shortcodes, Alias, Analytics}) ->
   {ok,{Shortcodes, Alias, delete_analytics(Short, Label, Analytics)}}.
 
 
@@ -223,16 +227,12 @@ remove_anaytics_aux(Short, Label, {Shortcodes, Alias, Analytics}) ->
 %% Delete analytics functions from a short code and all its' aliases.
 delete_analytics(Short, RemoveLabel, Dict) ->
   ChildShort = dict_search(Short, Dict),
-  dict:from_list(lists:map(fun({Key, Value}) -> 
-           case Key == ChildShort of
-             true -> Fun_dict = lists:nth(1,dict:fetch(ChildShort, Dict)),
-                     Fun_labels = dict:to_list(Fun_dict),
-                     {Key, [dict:from_list(lists:filter(fun({Label, [{_, _}]}) ->
-                     Label /= RemoveLabel
-                     end , Fun_labels))]};
-             false -> {Key, Value}
-           end
-         end, dict:to_list(Dict))).
+  dict:from_list(lists:map(fun({Key, [Functions]}) -> 
+    case Key == ChildShort of
+      true -> {Key, [dict:erase(RemoveLabel, Functions)]};
+      false -> {Key, Functions}
+    end
+  end, dict:to_list(Dict))).
 
 %% Used by lookup to run the analytics functions (if any exists) attached to
 %% the short code.
