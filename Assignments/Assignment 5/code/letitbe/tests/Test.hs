@@ -9,6 +9,8 @@ import qualified ExprProperties as EP
 main :: IO ()
 main = defaultMain testsuite
 
+
+
 testsuite =
   testGroup "Testing expression evaluation and simplification"
   [ testGroup "A few unit-tests"
@@ -27,6 +29,8 @@ testsuite =
 quickChecks =
   testGroup "QuickCheck tests"
   [ testProperty "Evaluating a simplified expression does not change its meaning"
-    (withMaxSuccess 1000 EP.prop_eval_simplify)
+    (withMaxSuccess 1000 EP.prop_eval_simplify),
+    testProperty  "Stats for prop_eval_simplify"
+    EP.prop_eval_simplify_stats
   ]
 
