@@ -192,6 +192,11 @@ sorted_insert(Key, Value, [{K, V} | Rest]) when K < Key ->
     [{K, V} | sorted_insert(Key, Value, Rest)];
 sorted_insert(Key, Value, KVS) -> [{Key, Value} | KVS].
 
+%% TEST QUALITY OF GENERATOR
+prop_aggregate() ->
+        ?FORALL(T, (bst()),
+             aggregate(call_names(T), true)).
 
-
-%% -- Test all properties in the module: eqc:module(test_bst)
+prop_measure() ->
+        ?FORALL(T, bst(),
+             collect(length(to_sorted_list(eval(T))),true)).
