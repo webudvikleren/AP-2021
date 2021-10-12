@@ -13,10 +13,13 @@ instance Arbitrary Expr where
 expr :: Gen Expr
 expr = sized exprN
 
+str :: Gen String
+str = elements ["x", "y", "z"]
+
 exprN :: Int -> Gen Expr
 exprN 0 = fmap Const arbitrary
 exprN n = oneof [ fmap Const arbitrary
-                 , fmap Var arbitrary
+                 , fmap Var str
                  , Oper Plus <$> subexpr <*> subexpr
                  , Oper Minus <$> subexpr <*> subexpr
                  , Oper Times <$> subexpr <*> subexpr
@@ -25,5 +28,8 @@ exprN n = oneof [ fmap Const arbitrary
 
 prop_eval_simplify :: Expr -> Property
 prop_eval_simplify x = E.eval (E.simplify x) mempty === E.eval x mempty
+
+prop_eval_simplify_stats :: Expr -> Property
+prop_eval_simplify_stats e = collect e prop_eval_simplify
 
 -- generate [char]

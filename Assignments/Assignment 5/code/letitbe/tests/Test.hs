@@ -27,6 +27,6 @@ testsuite =
 quickChecks =
   testGroup "QuickCheck tests"
   [ testProperty "Evaluating a simplified expression does not change its meaning"
-    EP.prop_eval_simplify
+    (withMaxSuccess 1000 EP.prop_eval_simplify)
   ]
 
