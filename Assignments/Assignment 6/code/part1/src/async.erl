@@ -7,11 +7,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
-%not needed?
--record(state, {working, succes, res}).
-
-
-
 % =============================================================================
 %                              API FUNCTIONS
 % =============================================================================
@@ -20,23 +15,70 @@ new(Fun, Arg) -> gen_server:start_monitor(?MODULE, {Fun, Arg}, []).
 wait(Aid) -> gen_server:call(Aid, wait).
 poll(Aid) -> gen_server:call(Aid, poll).
 wait_catch(Aid) -> gen_Server:call(Aid, wait_catch).
-wait_any(Aids) -> gen_server:call(Aids, wait_any).
+wait_any(Aids) -> lists:foreach(fun(Aid) ->
+                                gen_server:call(Aid, wait_any)
+                                end, Aids).
 
 % =============================================================================
 %                              CALLBACK FUNCTIONS
 % =============================================================================
 
 
+handle_call(wait, _From, State={Working, Succes, Res}) ->
+    case {Working, Succes, Res} of
+       {true,_,_} -> wait(_From);
+       {false,true,Res} -> {reply, Res, State};
+       {false,false,Ex} -> {reply, throw(Ex), State}
+    end;
+
 handle_call(poll, _From, State={Working, Succes, Res}) ->
     case {Working, Succes, Res} of
-       {working,_,_} -> {reply, nothing, State};
-       {notWorking,succes,Res} -> {reply, {ok, Res}, State};
-       {notWorking,succes,Ex} -> {reply, {exception, Ex}, State}
-    end.
+       {true,_,_} -> {reply, nothing, State};
+       {false,true,Res} -> {reply, {ok, Res}, State};
+       {false,false,Ex} -> {reply, {exception, Ex}, State}
+    end;
+
+handle_call(wait_catch, _From, State={Working, Succes, Res}) ->
+    case {Working, Succes, Res} of
+       {true,_,_} -> wait_catch(_From);
+       {false,true,Res} -> {reply, {ok, Res}, State};
+       {false,false,Ex} -> {reply, {exception, Ex}, State}
+    end;
+
+handle_call(wait_any, _From, State={Working, Succes, Res}) ->
+    case {Working, Succes, Res} of
+       {true,_,_} -> wait(_From);
+       {false,true,Res} -> {reply, Res, State};
+       {false,false,Ex} -> {reply, throw(Ex), State}
+    end;
+
+handle_call({worker,{false, true, Res}}, _From, _) ->
+    {reply, Res, {false, true, Res}};
+
+handle_call({worker,{false, false, Reason}}, _From, _) ->
+    {reply, Reason, {false, true, Reason}}.
+
+init(_Args={Fun, Arg}) ->
+        Me = self(),
+        spawn(fun() ->
+                   try
+                     Res = Fun(Arg),
+                     gen_server:call(Me, {worker, {false, true, Res}})
+                   catch
+                     _:Reason -> gen_server:call(Me, {worker, {false, false, Reason}})
+                  end end),
+        {ok, {true, false, nothing}}.
 
 
 
 
+
+
+
+
+
+
+% unused right now
 start(Name) ->
     sup:start_child(Name).
 
@@ -46,16 +88,8 @@ stop(Name) ->
 start_link(Name) ->
     gen_server:start_link({local, Name}, ?MODULE, [], []).
 
-init(_Args) ->
-    {ok, #state{dummy=1}}.
 
-handle_call(stop, _From, State) ->
-    {stop, normal, stopped, State};
-
-handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
-
-% dummy implementation to satisfy behavior.
+% dummy implementations to satisfy behavior.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
