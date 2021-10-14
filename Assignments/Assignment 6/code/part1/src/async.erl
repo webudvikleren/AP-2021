@@ -26,11 +26,27 @@ wait_catch(Aid) -> case gen_server:call(Aid, call, infinity) of
                         {exception, Ex} -> {exception, Ex}
                    end.
 
-%% wait_any(Aids) that waits for any of the supplied asynchronous actions to complete,
-%% where Aids is a non-empty list of asynchronous actions. If the first to complete
-%% throws an exception, then that exception is re-thrown by wait_any.
-%% Returns a pair {Aid, Res} where Aid is the action ID that completed with the result Res.
-wait_any(_Aids) -> nope.
+%% Wait any with spawn. Do not know how to get the caught value out of lists:foreach
+%% it just return "ok.".
+wait_any(Aids) -> lists:foreach(fun(Aid) -> spawn(fun() ->
+                        catch case gen_server:call(Aid, call, infinity) of
+                            nothing -> wait_any([Aid]);
+                            {ok, Res} -> io:format("Res"), throw({Aid, Res});
+                            {exception, Ex} -> io:format("Ex"), throw(Ex)
+                         end
+                         end) end, Aids).
+
+%% The return value here is correct, but it waits for all processes to finish,
+%% before it returns which is wrong. Maybe spawn a process for each Aid?
+%% throw(something), does not throw an exception, just local return which we can
+%% catch.
+wait_any_(Aids) -> catch lists:foreach(fun(Aid) ->
+                         case gen_server:call(Aid, call, infinity) of
+                            nothing -> wait_any([Aid]);
+                            {ok, Res} -> throw({Aid, Res});
+                            {exception, Ex} -> throw(Ex)
+                         end
+                         end, Aids).
 
 % =============================================================================
 %                              CALLBACK FUNCTIONS
@@ -62,7 +78,7 @@ init(_Args={Fun, Arg}) ->
                   end end),
         {ok, {true, false, nothing}}.
 
-% dummy implementations to satisfy behavior.
+% dummy implementations to satisfy behaviour.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
