@@ -9,7 +9,8 @@
 %                              API FUNCTIONS
 % =============================================================================
 
-new(Fun, Arg) -> gen_statem:start(?MODULE, {Fun, Arg}, []).
+new(Fun, Arg) -> {ok, Aid} = gen_statem:start(?MODULE, {Fun, Arg}, []),
+                 Aid.
 
 poll(Aid) -> gen_statem:call(Aid, poll).
 
@@ -26,13 +27,18 @@ wait_catch(Aid) -> case gen_statem:call(Aid, wait) of
 wait_any(Aids) ->
     Ref = make_ref(),
     Me = self(),
+    spawn(fun() -> Sup = self(),
     lists:foreach(fun(Aid) -> spawn(fun() ->
                                     Res = gen_statem:call(Aid, wait),
-                                    Me ! {Aid, Ref, Res}
+                                    Sup ! {Aid, Ref, Res}
                                     end) end, Aids),
     receive
+       {Aid, Ref, Res} -> Me ! {Aid, Ref, Res}, exit(normal)
+    end end),
+
+    receive
         {Aid, Ref, {ok, Res}} -> {Aid, Res};
-        {_, Ref, {exception, Ex}} -> throw(Ex)
+        {_, Ref, {exception, Ex}} -> throw({exception,Ex})
     end.
 
 % =============================================================================
